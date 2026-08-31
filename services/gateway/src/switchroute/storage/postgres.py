@@ -99,7 +99,7 @@ class PostgresRepository:
                 workspace_id,
                 kind,
                 name,
-                json.dumps(metadata),
+                metadata,
             )
             if row is None:
                 raise SwitchRouteError(
@@ -142,7 +142,7 @@ class PostgresRepository:
             provider_id,
             workspace_id,
             status,
-            json.dumps(metadata),
+            metadata,
         )
         if result == "UPDATE 0":
             raise SwitchRouteError("provider_not_found", "Provider not found.", 404)
