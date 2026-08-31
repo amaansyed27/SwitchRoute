@@ -8,6 +8,10 @@ from switchroute.domain import Candidate, UsageRecord, VirtualKeyContext
 from switchroute.errors import ROUTE_NOT_FOUND, SwitchRouteError
 
 
+def _record_dict(row: asyncpg.Record) -> dict[str, Any]:
+    return {str(key): row[key] for key in row.keys()}
+
+
 class PostgresRepository:
     def __init__(self, database_url: str | None) -> None:
         self._database_url = database_url
@@ -37,7 +41,7 @@ class PostgresRepository:
             raise SwitchRouteError(
                 "authentication_error", "No workspace is available for this user.", 403
             )
-        return dict(row)
+        return _record_dict(row)
 
     async def dashboard(self, workspace_id: UUID) -> dict[str, Any]:
         row = await self._require_pool().fetchrow(
@@ -49,14 +53,16 @@ class PostgresRepository:
               (select coalesce(sum(estimated_cost_microusd),0) from public.request_usage where workspace_id=$1 and created_at > now()-interval '24 hours') cost_24h_microusd""",
             workspace_id,
         )
-        return dict(row)
+        if row is None:
+            raise SwitchRouteError("configuration_error", "Dashboard query failed.", 500)
+        return _record_dict(row)
 
     async def list_providers(self, workspace_id: UUID) -> list[dict[str, Any]]:
         rows = await self._require_pool().fetch(
             "select id,provider_kind,display_name,status,metadata,last_validated_at,created_at from public.provider_connections where workspace_id=$1 order by created_at",
             workspace_id,
         )
-        return [dict(row) for row in rows]
+        return [_record_dict(row) for row in rows]
 
     async def create_provider(
         self,
@@ -76,13 +82,15 @@ class PostgresRepository:
                 name,
                 json.dumps(metadata),
             )
+            if row is None:
+                raise SwitchRouteError("invalid_request", "Provider could not be created.", 500)
             await conn.execute(
                 "insert into private.provider_credentials(provider_connection_id,encrypted_secret,key_id) values($1,$2,$3)",
                 row["id"],
                 encrypted_secret,
                 key_id,
             )
-        return dict(row)
+        return _record_dict(row)
 
     async def provider_secret(
         self, workspace_id: UUID, provider_id: UUID
@@ -131,7 +139,7 @@ class PostgresRepository:
             from public.routes r left join public.route_targets t on t.route_id=r.id where r.workspace_id=$1 group by r.id order by r.created_at""",
             workspace_id,
         )
-        return [dict(row) for row in rows]
+        return [_record_dict(row) for row in rows]
 
     async def _write_route(
         self,
@@ -166,6 +174,8 @@ class PostgresRepository:
                 strategy,
                 enabled,
             )
+            if row is None:
+                raise SwitchRouteError("invalid_request", "Route could not be created.", 500)
             route_id = row["id"]
 
         for index, target in enumerate(targets):
@@ -185,7 +195,7 @@ class PostgresRepository:
                     "A Route target references a provider outside this workspace.",
                     400,
                 )
-        return dict(row)
+        return _record_dict(row)
 
     async def create_route(
         self,
@@ -231,7 +241,7 @@ class PostgresRepository:
             "select k.id,k.name,k.prefix,k.environment,k.status,k.last_used_at,k.expires_at,k.created_at,k.route_id,r.name route_name from public.virtual_api_keys k join public.routes r on r.id=k.route_id where k.workspace_id=$1 order by k.created_at desc",
             workspace_id,
         )
-        return [dict(row) for row in rows]
+        return [_record_dict(row) for row in rows]
 
     async def create_key(
         self,
@@ -255,7 +265,7 @@ class PostgresRepository:
         )
         if not row:
             raise SwitchRouteError(ROUTE_NOT_FOUND, "Route not found.", 404)
-        return dict(row)
+        return _record_dict(row)
 
     async def revoke_key(self, workspace_id: UUID, key_id: UUID) -> None:
         await self._require_pool().execute(
@@ -280,8 +290,8 @@ class PostgresRepository:
           where t.route_id=$1 and t.enabled and p.status in ('healthy','unknown') order by t.position""",
             key["route_id"],
         )
-        candidates = [Candidate(**dict(row)) for row in rows]
-        return VirtualKeyContext(candidates=candidates, **dict(key))
+        candidates = [Candidate(**_record_dict(row)) for row in rows]
+        return VirtualKeyContext(candidates=candidates, **_record_dict(key))
 
     async def mark_key_used(self, key_id: UUID) -> None:
         await self._require_pool().execute(
@@ -317,4 +327,4 @@ class PostgresRepository:
             workspace_id,
             min(max(limit, 1), 100),
         )
-        return [dict(row) for row in rows]
+        return [_record_dict(row) for row in rows]

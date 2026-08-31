@@ -1,10 +1,12 @@
 from types import SimpleNamespace
+from typing import cast
 from uuid import UUID
 
 import pytest
 
 from switchroute.domain import Candidate, VirtualKeyContext
 from switchroute.routing.orchestrator import RouteOrchestrator
+from switchroute.services import Services
 
 
 class Repo:
@@ -38,7 +40,10 @@ class Invoker:
         yield {"choices": [{"delta": {"content": "hello"}, "finish_reason": None}]}
         if provider_kind == "groq" and self.fail_midstream:
             raise RuntimeError("failed after content")
-        yield {"choices": [{"delta": {}, "finish_reason": "stop"}], "usage": {"prompt_tokens": 2, "completion_tokens": 1}}
+        yield {
+            "choices": [{"delta": {}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 2, "completion_tokens": 1},
+        }
 
 
 def context() -> VirtualKeyContext:
@@ -57,11 +62,22 @@ def context() -> VirtualKeyContext:
     )
 
 
+def services_for(invoker: Invoker) -> Services:
+    namespace = SimpleNamespace(repository=Repo(), secrets=Secrets(), invoker=invoker)
+    return cast(Services, namespace)
+
+
 @pytest.mark.asyncio
 async def test_stream_falls_back_before_content() -> None:
     invoker = Invoker(False)
-    services = SimpleNamespace(repository=Repo(), secrets=Secrets(), invoker=invoker)
-    data = b"".join([part async for part in RouteOrchestrator(services).stream(context(), {"messages": []})])
+    data = b"".join(
+        [
+            part
+            async for part in RouteOrchestrator(services_for(invoker)).stream(
+                context(), {"messages": []}
+            )
+        ]
+    )
     assert invoker.calls == ["groq", "gemini"]
     assert b"hello" in data and b"[DONE]" in data
 
@@ -69,7 +85,13 @@ async def test_stream_falls_back_before_content() -> None:
 @pytest.mark.asyncio
 async def test_stream_never_blends_provider_after_content() -> None:
     invoker = Invoker(True)
-    services = SimpleNamespace(repository=Repo(), secrets=Secrets(), invoker=invoker)
-    data = b"".join([part async for part in RouteOrchestrator(services).stream(context(), {"messages": []})])
+    data = b"".join(
+        [
+            part
+            async for part in RouteOrchestrator(services_for(invoker)).stream(
+                context(), {"messages": []}
+            )
+        ]
+    )
     assert invoker.calls == ["groq"]
     assert b"hello" in data and b"provider_unavailable" in data and b"[DONE]" in data
