@@ -11,11 +11,27 @@ export function RoutesClient() {
   const [providers, setProviders] = useState<ProviderConnection[]>([]);
   const [editing, setEditing] = useState<RouteRecord | "new" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const load = useCallback(async () => {
-    try { const [routeData, providerData] = await Promise.all([manageFetch<RouteRecord[]>("routes"), manageFetch<ProviderConnection[]>("providers")]); setRoutes(routeData); setProviders(providerData); }
-    catch (err) { setError(err instanceof Error ? err.message : "Routes could not be loaded."); }
+
+  const applyData = useCallback((routeData: RouteRecord[], providerData: ProviderConnection[]) => {
+    setRoutes(routeData);
+    setProviders(providerData);
   }, []);
-  useEffect(() => { load(); }, [load]);
+
+  const load = useCallback(async () => {
+    const [routeData, providerData] = await Promise.all([
+      manageFetch<RouteRecord[]>("routes"),
+      manageFetch<ProviderConnection[]>("providers"),
+    ]);
+    applyData(routeData, providerData);
+  }, [applyData]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([manageFetch<RouteRecord[]>("routes"), manageFetch<ProviderConnection[]>("providers")])
+      .then(([routeData, providerData]) => { if (active) applyData(routeData, providerData); })
+      .catch((err) => { if (active) setError(err instanceof Error ? err.message : "Routes could not be loaded."); });
+    return () => { active = false; };
+  }, [applyData]);
 
   async function remove(route: RouteRecord) {
     if (!window.confirm(`Delete Route ${route.name}? Revoke keys bound to it first.`)) return;

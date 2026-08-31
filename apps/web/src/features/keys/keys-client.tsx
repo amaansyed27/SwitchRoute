@@ -16,11 +16,29 @@ export function KeysClient() {
   const [environment, setEnvironment] = useState<"live" | "test">("live");
   const [created, setCreated] = useState<CreatedKey | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const load = useCallback(async () => {
-    try { const [keyData, routeData] = await Promise.all([manageFetch<VirtualKey[]>("keys"), manageFetch<RouteRecord[]>("routes")]); setKeys(keyData); setRoutes(routeData.filter((route) => route.enabled)); setRouteId((current) => current || routeData.find((route) => route.enabled)?.id || ""); }
-    catch (err) { setError(err instanceof Error ? err.message : "API keys could not be loaded."); }
+
+  const applyData = useCallback((keyData: VirtualKey[], routeData: RouteRecord[]) => {
+    const activeRoutes = routeData.filter((route) => route.enabled);
+    setKeys(keyData);
+    setRoutes(activeRoutes);
+    setRouteId((current) => current || activeRoutes[0]?.id || "");
   }, []);
-  useEffect(() => { load(); }, [load]);
+
+  const load = useCallback(async () => {
+    const [keyData, routeData] = await Promise.all([
+      manageFetch<VirtualKey[]>("keys"),
+      manageFetch<RouteRecord[]>("routes"),
+    ]);
+    applyData(keyData, routeData);
+  }, [applyData]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([manageFetch<VirtualKey[]>("keys"), manageFetch<RouteRecord[]>("routes")])
+      .then(([keyData, routeData]) => { if (active) applyData(keyData, routeData); })
+      .catch((err) => { if (active) setError(err instanceof Error ? err.message : "API keys could not be loaded."); });
+    return () => { active = false; };
+  }, [applyData]);
 
   async function create(event: FormEvent) {
     event.preventDefault(); setError(null);

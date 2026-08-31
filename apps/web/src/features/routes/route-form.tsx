@@ -7,7 +7,14 @@ import { manageFetch } from "@/lib/gateway/manage";
 import { TargetStack } from "./target-stack";
 
 function slugify(value: string) { return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 64); }
-function preparedTargets(targets: RouteTarget[]) { return targets.map(({ id: _id, position: _position, ...target }) => target); }
+function preparedTargets(targets: RouteTarget[]) {
+  return targets.map((target) => ({
+    provider_connection_id: target.provider_connection_id,
+    model_id: target.model_id,
+    billing_tier: target.billing_tier,
+    enabled: target.enabled,
+  }));
+}
 
 export function RouteForm({ providers, route, onSaved, onCancel }: { providers: ProviderConnection[]; route?: RouteRecord; onSaved: () => void; onCancel: () => void }) {
   const [name, setName] = useState(route?.name ?? "");
