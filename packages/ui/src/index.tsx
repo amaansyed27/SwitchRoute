@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, PropsWithChildren, ReactNode } from "react";
+import React, { type ButtonHTMLAttributes, type InputHTMLAttributes, type PropsWithChildren, type ReactNode } from "react";
 
 export function Button({ className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return <button className={`sr-button ${className}`.trim()} {...props} />;

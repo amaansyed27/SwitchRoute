@@ -57,6 +57,47 @@ class RouteOrchestrator:
             )
         )
 
+    async def _selected_stream(
+        self,
+        context: VirtualKeyContext,
+        request_id: UUID,
+        candidate: Candidate,
+        started: float,
+        fallback_count: int,
+        buffered: list[Any],
+        iterator: AsyncIterator[Any],
+        input_tokens: int | None,
+        output_tokens: int | None,
+    ) -> AsyncIterator[bytes]:
+        status = "success"
+        error_category: str | None = None
+        try:
+            for item in buffered:
+                yield sse_data(normalized_chunk(item))
+            async for item in iterator:
+                chunk_usage = usage_from(item)
+                input_tokens = chunk_usage[0] or input_tokens
+                output_tokens = chunk_usage[1] or output_tokens
+                yield sse_data(normalized_chunk(item))
+            yield sse_done()
+        except Exception as exc:
+            error = classify_provider_error(exc)
+            status = "error"
+            error_category = error.code
+            yield sse_error(error.code, error.message)
+            yield sse_done()
+        finally:
+            await self._record(
+                context,
+                request_id,
+                candidate,
+                started,
+                status,
+                fallback_count,
+                (input_tokens, output_tokens),
+                error_category,
+            )
+
     async def complete(self, context: VirtualKeyContext, payload: dict[str, Any]) -> dict:
         started = time.perf_counter()
         request_id = uuid4()
@@ -79,7 +120,7 @@ class RouteOrchestrator:
                 return data
             except SwitchRouteError as exc:
                 last_error = exc
-            except Exception as exc:  # upstream SDK exceptions are normalized here
+            except Exception as exc:
                 last_error = classify_provider_error(exc)
             fallback_count += 1
 
@@ -132,38 +173,17 @@ class RouteOrchestrator:
                 fallback_count += 1
                 continue
 
-            async def selected_stream() -> AsyncIterator[bytes]:
-                nonlocal input_tokens, output_tokens
-                status = "success"
-                error_category: str | None = None
-                try:
-                    for item in buffered:
-                        yield sse_data(normalized_chunk(item))
-                    async for item in iterator:
-                        chunk_usage = usage_from(item)
-                        input_tokens = chunk_usage[0] or input_tokens
-                        output_tokens = chunk_usage[1] or output_tokens
-                        yield sse_data(normalized_chunk(item))
-                    yield sse_done()
-                except Exception as exc:
-                    error = classify_provider_error(exc)
-                    status = "error"
-                    error_category = error.code
-                    yield sse_error(error.code, error.message)
-                    yield sse_done()
-                finally:
-                    await self._record(
-                        context,
-                        request_id,
-                        candidate,
-                        started,
-                        status,
-                        fallback_count,
-                        (input_tokens, output_tokens),
-                        error_category,
-                    )
-
-            async for event in selected_stream():
+            async for event in self._selected_stream(
+                context,
+                request_id,
+                candidate,
+                started,
+                fallback_count,
+                buffered,
+                iterator,
+                input_tokens,
+                output_tokens,
+            ):
                 yield event
             return
 

@@ -4,6 +4,12 @@ from switchroute.domain import ProviderModel
 from switchroute.errors import INVALID_REQUEST, SwitchRouteError, classify_provider_error
 
 
+class ProviderResponseError(RuntimeError):
+    def __init__(self, status_code: int) -> None:
+        super().__init__("provider validation failed")
+        self.status_code = status_code
+
+
 async def _checked_json(url: str, *, headers: dict[str, str] | None = None, params: dict[str, str] | None = None) -> dict:
     try:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -11,9 +17,7 @@ async def _checked_json(url: str, *, headers: dict[str, str] | None = None, para
         if response.status_code in (401, 403):
             raise SwitchRouteError("provider_auth_error", "Provider rejected this credential.", 400)
         if response.status_code >= 400:
-            error = RuntimeError("provider validation failed")
-            setattr(error, "status_code", response.status_code)
-            raise classify_provider_error(error)
+            raise classify_provider_error(ProviderResponseError(response.status_code))
         return response.json()
     except SwitchRouteError:
         raise
