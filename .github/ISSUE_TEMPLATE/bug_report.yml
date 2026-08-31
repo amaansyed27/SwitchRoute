@@ -1,0 +1,22 @@
+name: Bug report
+description: Report a reproducible SwitchRoute problem
+body:
+  - type: markdown
+    attributes:
+      value: Never include provider API keys, SwitchRoute keys, prompts, completions, or other secrets.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version

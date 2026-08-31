@@ -1,0 +1,14 @@
+{
+  "name": "switchroute",
+  "private": true,
+  "engines": { "node": ">=22" },
+  "workspaces": ["apps/web", "packages/*"],
+  "scripts": {
+    "dev:web": "npm --workspace @switchroute/web run dev",
+    "build:web": "npm --workspace @switchroute/web run build",
+    "lint": "npm --workspace @switchroute/web run lint",
+    "typecheck": "npm --workspace @switchroute/web run typecheck",
+    "test:web": "npm --workspace @switchroute/web run test",
+    "check:files": "node scripts/check-file-size.mjs"
+  }
+}
