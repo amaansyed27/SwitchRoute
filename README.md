@@ -32,16 +32,17 @@ Directories are added only when they serve Slice 1 or establish an immediate ext
 
 ## Local development
 
-Requirements: Node.js 22+, Python 3.12+, Docker Desktop, and the Supabase CLI.
+Requirements for normal hosted-Supabase development: Node.js 22+ and Python 3.12+. Docker Desktop and the Supabase CLI are only required when intentionally running the database/RLS test stack locally.
 
-1. Copy `.env.example` to `.env` and fill the Supabase values.
-2. Start local Supabase: `supabase start`.
-3. Install web dependencies: `npm install`.
-4. Create a gateway venv and install it: `python -m venv .venv`, then `pip install -e services/gateway[dev]`.
-5. Run the gateway: `python -m uvicorn switchroute.main:app --app-dir services/gateway/src --reload --port 8000`.
-6. Run the web app: `npm run dev:web`.
+1. Configure the hosted Supabase project and allow `http://localhost:3000/auth/callback` in Auth redirect URLs.
+2. Copy `.env.example` to `.env` and fill the Gateway block with the hosted Supabase URL, publishable key, Session Pooler database URL, and generated local encryption secrets.
+3. Create `apps/web/.env.local` from the Web block in `.env.example`.
+4. Install web dependencies: `npm install`.
+5. Create the gateway Python 3.12 venv and install it: `py -3.12 -m venv .venv`, then `pip install -e ".\services\gateway[dev]"`.
+6. Run the gateway: `python -m uvicorn switchroute.main:app --app-dir services/gateway/src --reload --port 8000`.
+7. Run the web app in another terminal: `npm run dev:web`.
 
-See `docs/development/local-windows.md` for the full PowerShell workflow.
+See `docs/development/local-windows.md` for the full PowerShell workflow and the optional local Supabase test path.
 
 ## Deployment intent
 
