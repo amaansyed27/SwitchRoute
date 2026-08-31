@@ -1,0 +1,15 @@
+# Routes
+
+A Route is a reusable model-selection policy. Every request chooses one target.
+
+## Priority
+
+Targets are attempted in the order shown in the Route builder. If target A fails before response content begins, SwitchRoute may try target B.
+
+## Free First
+
+Slice 1 uses provider/model metadata to rank `free`, then `free_capable`, then unknown, then paid targets while preserving user order within each tier. This is intentionally basic; live quota intelligence belongs to a later slice.
+
+## Streaming rule
+
+Fallback is allowed only before streamed content begins. After any response content is emitted, SwitchRoute never appends an answer from a second model. If the active provider fails mid-stream, the client receives a normalized stream error.

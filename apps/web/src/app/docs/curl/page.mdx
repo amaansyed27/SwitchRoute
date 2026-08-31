@@ -1,0 +1,10 @@
+# cURL example
+
+```bash
+curl https://api.switchroute.dawnlightlabs.com/v1/chat/completions \
+  -H "Authorization: Bearer sr_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"model":"auto","messages":[{"role":"user","content":"Hello"}]}'
+```
+
+Add `"stream": true` to receive OpenAI-style server-sent events ending in `data: [DONE]`.

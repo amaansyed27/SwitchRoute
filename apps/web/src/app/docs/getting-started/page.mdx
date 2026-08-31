@@ -1,0 +1,35 @@
+# Getting Started
+
+SwitchRoute gives you one OpenAI-compatible API for the model providers you already use. A typical setup takes four product actions: connect a provider, create a Route, create a route-bound SwitchRoute key, then point your existing OpenAI client at the SwitchRoute gateway.
+
+## 1. Connect a provider
+
+Open **Providers**, choose Groq, Gemini, or OpenRouter, paste the provider key, and run **Test connection**. SwitchRoute discovers chat-capable models before it lets you save. The credential becomes write-only after save.
+
+## 2. Create a Route
+
+A Route is an ordered list of provider/model targets. Choose **Priority** to follow that order exactly, or **Free First** to prefer models marked free/free-capable before paid fallbacks.
+
+## 3. Generate a key
+
+Open **API Keys**, choose the Route, and create either a live or test key. Copy the full `sr_live_...` or `sr_test_...` value immediately; SwitchRoute stores only a keyed hash and cannot recover it.
+
+## 4. Send a request
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="sr_live_...",
+    base_url="https://api.switchroute.dawnlightlabs.com/v1"
+)
+
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}]
+)
+```
+
+During local development, use `http://localhost:8000/v1` instead.
+
+The onboarding screen performs this entire path and includes a real test request, so a new user does not need to read documentation before verifying their setup.

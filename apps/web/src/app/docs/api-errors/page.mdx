@@ -1,0 +1,17 @@
+# API errors
+
+SwitchRoute normalizes failures so provider-specific error bodies do not leak into clients or logs.
+
+| Code | Meaning |
+| --- | --- |
+| `authentication_error` | Missing, invalid, expired, or revoked SwitchRoute key |
+| `route_not_found` | Referenced Route does not exist |
+| `route_unavailable` | No target could begin the request |
+| `provider_auth_error` | Upstream provider rejected its credential |
+| `provider_rate_limited` | Upstream provider returned a rate limit |
+| `provider_timeout` | Upstream provider timed out |
+| `provider_unavailable` | Provider could not serve the request |
+| `unsupported_capability` | Route cannot satisfy the requested capability |
+| `invalid_request` | Request or product configuration is invalid |
+
+Raw provider error bodies are deliberately not retained or returned because they can echo request content.

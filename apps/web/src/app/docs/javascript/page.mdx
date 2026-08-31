@@ -1,0 +1,20 @@
+# JavaScript example
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.SWITCHROUTE_API_KEY,
+  baseURL: "https://api.switchroute.dawnlightlabs.com/v1",
+});
+
+const stream = await client.chat.completions.create({
+  model: "auto",
+  messages: [{ role: "user", content: "Hello" }],
+  stream: true,
+});
+
+for await (const chunk of stream) {
+  process.stdout.write(chunk.choices[0]?.delta?.content ?? "");
+}
+```

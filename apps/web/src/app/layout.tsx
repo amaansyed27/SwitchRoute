@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "@switchroute/design-tokens/tokens.css";
 import "./globals.css";
+import "./product.css";
 
 export const metadata: Metadata = {
   title: { default: "SwitchRoute", template: "%s · SwitchRoute" },

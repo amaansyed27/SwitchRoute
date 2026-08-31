@@ -1,0 +1,5 @@
+# Gemini setup
+
+Create a Gemini API key in Google AI Studio, then choose **Gemini** on the Providers page. SwitchRoute validates the key against Google's model-list API and keeps models that support `generateContent`.
+
+The model ID stored in a Route is provider-native. LiteLLM handles request normalization when the Route is invoked.

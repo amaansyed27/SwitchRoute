@@ -1,0 +1,14 @@
+# API keys
+
+SwitchRoute virtual keys look like `sr_live_...` or `sr_test_...` and are bound to one Route.
+
+The full secret is shown once. SwitchRoute persists only:
+
+- key prefix
+- keyed secure hash
+- workspace and Route
+- environment and status
+- created/last-used timestamps
+- optional expiry when configured
+
+A revoked key stops authenticating immediately. Existing secrets cannot be recovered; create a new key if you lose one.

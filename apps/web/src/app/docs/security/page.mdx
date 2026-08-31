@@ -1,0 +1,15 @@
+# Security and zero prompt retention
+
+SwitchRoute separates credential material from user-visible product data.
+
+Provider keys are encrypted with AES-256-GCM in Slice 1 and stored in a private Postgres schema. The application depends on a `SecretStore` contract so a KMS/envelope implementation can replace it later. Decrypted provider keys are used only inside the gateway during provider operations.
+
+Virtual SwitchRoute keys are shown once and stored only as a prefix plus keyed hash.
+
+## Content that is not persisted
+
+SwitchRoute does not persist prompts, completions, system prompts, tool arguments/results, uploads, authorization headers, provider API keys, or arbitrary upstream error bodies.
+
+## Operational metadata that may be persisted
+
+Request/workspace/Route identifiers, selected provider/model, token counts, latency, status, fallback count, normalized error category, estimated cost when known, and timestamps.

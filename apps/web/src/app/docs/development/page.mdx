@@ -1,0 +1,9 @@
+# Development
+
+SwitchRoute is a monorepo with a Next.js product app, a FastAPI/LiteLLM gateway, and migration-managed Supabase schema.
+
+On Windows, start local Supabase first, then run the gateway and web app in separate PowerShell windows. The full commands are maintained in `docs/development/local-windows.md` in the repository.
+
+Before a change is reviewable, run web lint/typecheck/tests/build, gateway Ruff/Pyright/Pytest, Supabase database tests, OpenAPI drift validation, dependency/secret checks, and the source-file modularity check.
+
+FastAPI's generated OpenAPI document is the source of truth for the HTTP API contract; CI compares it to the committed contract snapshot.

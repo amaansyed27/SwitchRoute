@@ -1,0 +1,14 @@
+# Providers
+
+Slice 1 supports **Groq**, **Gemini**, and **OpenRouter**.
+
+The connection flow is deliberately short:
+
+1. Choose a provider.
+2. Paste a provider API key.
+3. Test the credential and discover models.
+4. Save only after validation succeeds.
+
+Saved secrets are encrypted by the gateway and stored in a private Postgres schema. The web client can see provider identity, health, and discovered model metadata, but never the decrypted credential.
+
+Use the **Test** action later to revalidate a connection and refresh its discovered model metadata. Disconnect is blocked if an existing Route still references the provider.

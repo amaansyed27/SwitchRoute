@@ -1,0 +1,17 @@
+# Core concepts
+
+## Provider connection
+
+A provider connection represents access to one upstream AI provider. Slice 1 supports Groq, Gemini, and OpenRouter. Its credential is validated, encrypted, and never returned after storage.
+
+## Route
+
+A Route selects **one** provider/model target for each incoming request. It is not an agent, chain, workflow, or ensemble. Priority defines the fallback order.
+
+## Virtual API key
+
+A SwitchRoute key is a bearer credential bound to one workspace and one Route. The request can use `model="auto"`; the application does not need to know which upstream model eventually answers.
+
+## Activity metadata
+
+SwitchRoute keeps the minimum operational metadata needed for routing and diagnosis: route/provider/model, token counts, latency, status, fallback count, estimated cost when known, and normalized errors. Prompt and completion content is excluded by design.

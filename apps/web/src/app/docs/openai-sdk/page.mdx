@@ -1,0 +1,14 @@
+# OpenAI SDK connection
+
+SwitchRoute's Slice 1 public API is OpenAI-compatible for chat completions. Existing OpenAI SDK code changes only its API key and base URL.
+
+```python
+client = OpenAI(
+    api_key="sr_live_...",
+    base_url="https://api.switchroute.dawnlightlabs.com/v1"
+)
+```
+
+Use `model="auto"` for the Route attached to the key. `GET /v1/models` also exposes `auto` and the bound Route slug.
+
+`POST /v1/responses` is intentionally not part of Slice 1 because chat-completions quality, streaming correctness, and compatibility take priority over widening the surface prematurely.

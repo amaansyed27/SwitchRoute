@@ -1,0 +1,5 @@
+# Custom / OpenAI-compatible providers
+
+Custom OpenAI-compatible cloud endpoints are an intended provider boundary, but they are **not implemented in Slice 1**. The provider adapter contract and LiteLLM normalization layer are designed so a later provider can add credential validation, model discovery, metadata, error classification, and invocation naming without changing Route semantics.
+
+Local providers such as Ollama, LM Studio, vLLM, FreeToken, and SwitchRoute Edge also belong to later slices.

@@ -1,0 +1,17 @@
+# Python example
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="sr_live_...",
+    base_url="https://api.switchroute.dawnlightlabs.com/v1",
+)
+
+with client.chat.completions.stream(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+) as stream:
+    for text in stream.text_stream:
+        print(text, end="")
+```
