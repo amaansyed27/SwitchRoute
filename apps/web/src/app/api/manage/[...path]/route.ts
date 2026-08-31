@@ -1,7 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+function originAllowed(request: NextRequest) {
+  if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return true;
+  const origin = request.headers.get("origin");
+  return !origin || origin === request.nextUrl.origin;
+}
+
 async function forward(request: NextRequest, path: string[]) {
+  if (!originAllowed(request)) {
+    return NextResponse.json({ error: { message: "Cross-origin management request rejected.", code: "authentication_error" } }, { status: 403 });
+  }
   const supabase = await createClient();
   const { data: claims, error } = await supabase.auth.getClaims();
   if (error || !claims?.claims?.sub) {
@@ -17,22 +26,15 @@ async function forward(request: NextRequest, path: string[]) {
   const target = new URL(`/manage/${path.join("/")}`, gateway);
   request.nextUrl.searchParams.forEach((value, key) => target.searchParams.set(key, value));
   const body = ["GET", "HEAD"].includes(request.method) ? undefined : await request.text();
-
   try {
     const upstream = await fetch(target, {
       method: request.method,
       body,
       cache: "no-store",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        ...(body ? { "Content-Type": request.headers.get("content-type") ?? "application/json" } : {}),
-      },
+      headers: { Authorization: `Bearer ${accessToken}`, ...(body ? { "Content-Type": request.headers.get("content-type") ?? "application/json" } : {}) },
     });
     const content = upstream.status === 204 ? null : await upstream.text();
-    return new NextResponse(content, {
-      status: upstream.status,
-      headers: content ? { "Content-Type": upstream.headers.get("content-type") ?? "application/json" } : undefined,
-    });
+    return new NextResponse(content, { status: upstream.status, headers: content ? { "Content-Type": upstream.headers.get("content-type") ?? "application/json" } : undefined });
   } catch {
     return NextResponse.json({ error: { message: "Gateway is unavailable.", code: "provider_unavailable" } }, { status: 503 });
   }

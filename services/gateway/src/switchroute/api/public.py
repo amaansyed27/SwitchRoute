@@ -6,9 +6,15 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from switchroute.api.deps import virtual_key_context
 from switchroute.api.schemas import ChatCompletionRequest
 from switchroute.domain import VirtualKeyContext
+from switchroute.errors import INVALID_REQUEST, SwitchRouteError
 from switchroute.routing.orchestrator import RouteOrchestrator
 
 router = APIRouter(prefix="/v1", tags=["OpenAI compatible"])
+
+
+def _validate_model(requested: str, context: VirtualKeyContext) -> None:
+    if requested not in {"auto", context.route_slug}:
+        raise SwitchRouteError(INVALID_REQUEST, "Use model='auto' or the Route slug bound to this key.", 400)
 
 
 @router.post("/chat/completions")
@@ -17,6 +23,7 @@ async def chat_completions(
     request: Request,
     context: VirtualKeyContext = Depends(virtual_key_context),
 ):
+    _validate_model(body.model, context)
     orchestrator = RouteOrchestrator(request.app.state.services)
     payload = body.model_dump(exclude_none=True)
     if body.stream:

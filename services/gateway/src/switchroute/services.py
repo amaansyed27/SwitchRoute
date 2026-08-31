@@ -19,7 +19,7 @@ class Services:
 
 
 def build_services(settings: Settings, repository: Repository) -> Services:
-    providers = ProviderRegistry()
+    providers = ProviderRegistry(settings.enable_test_provider)
     return Services(
         settings=settings,
         repository=repository,
