@@ -6,7 +6,11 @@ import { manageFetch } from "@/lib/gateway/manage";
 import type { ModelOption, ProviderConnection } from "@/features/shared/types";
 
 type Kind = "groq" | "gemini" | "openrouter";
-const names: Record<Kind, string> = { groq: "Groq", gemini: "Gemini", openrouter: "OpenRouter" };
+const providers: Array<{ kind: Kind; name: string; note: string }> = [
+  { kind: "groq", name: "Groq", note: "Fast inference" },
+  { kind: "gemini", name: "Gemini", note: "Google AI Studio" },
+  { kind: "openrouter", name: "OpenRouter", note: "Broad model catalog" },
+];
 
 export function ProviderConnectForm({ onConnected, onCancel }: { onConnected: (provider: ProviderConnection) => void; onCancel?: () => void }) {
   const [kind, setKind] = useState<Kind>("groq");
@@ -16,7 +20,10 @@ export function ProviderConnectForm({ onConnected, onCancel }: { onConnected: (p
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function changeKind(next: Kind) { setKind(next); setName(names[next]); setModels(null); setError(null); }
+  function changeKind(next: Kind) {
+    const provider = providers.find((item) => item.kind === next);
+    setKind(next); setName(provider?.name ?? next); setModels(null); setError(null);
+  }
 
   async function test(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError(null); setModels(null);
@@ -38,14 +45,23 @@ export function ProviderConnectForm({ onConnected, onCancel }: { onConnected: (p
   }
 
   return (
-    <form className="sr-panel sr-form-grid" onSubmit={test}>
-      <div className="sr-between"><div><p className="sr-kicker">NEW CONNECTION</p><h2 style={{ margin: 0 }}>Connect a provider</h2></div>{onCancel && <Button type="button" className="sr-button-secondary" onClick={onCancel}>Close</Button>}</div>
-      <div className="sr-field"><Label htmlFor="provider-kind">Provider</Label><select id="provider-kind" className="sr-select" value={kind} onChange={(event) => changeKind(event.target.value as Kind)}><option value="groq">Groq</option><option value="gemini">Gemini</option><option value="openrouter">OpenRouter</option></select></div>
-      <div className="sr-field"><Label htmlFor="provider-name">Connection name</Label><Input id="provider-name" required value={name} onChange={(event) => setName(event.target.value)} /></div>
-      <div className="sr-field"><Label htmlFor="provider-key">Provider API key</Label><Input id="provider-key" type="password" required autoComplete="off" value={key} onChange={(event) => { setKey(event.target.value); setModels(null); }} placeholder="Write-only after save" /><small style={{ color: "var(--sr-muted)" }}>SwitchRoute validates this key before saving it. The decrypted value is never returned to the browser.</small></div>
+    <form className="provider-connect" onSubmit={test}>
+      <div className="provider-connect-head">
+        <div><p className="sr-kicker">NEW CONNECTION</p><h2>Connect a provider</h2><p>Choose the upstream, validate the credential, then save it. The key becomes write-only after this step.</p></div>
+        {onCancel && <Button type="button" className="sr-button-secondary" onClick={onCancel}>Close</Button>}
+      </div>
+
+      <fieldset className="provider-picker"><legend>Provider</legend>{providers.map((provider) => <button key={provider.kind} type="button" data-selected={kind === provider.kind} onClick={() => changeKind(provider.kind)}><strong>{provider.name}</strong><span>{provider.note}</span></button>)}</fieldset>
+
+      <div className="provider-fields">
+        <div className="sr-field"><Label htmlFor="provider-name">Connection name</Label><Input id="provider-name" required value={name} onChange={(event) => setName(event.target.value)} /></div>
+        <div className="sr-field"><Label htmlFor="provider-key">Provider API key</Label><Input id="provider-key" type="password" required autoComplete="off" value={key} onChange={(event) => { setKey(event.target.value); setModels(null); }} placeholder="Paste provider key" /><small>Validated before storage. Decrypted credentials are never returned to the browser.</small></div>
+      </div>
+
       {error && <div className="sr-error">{error}</div>}
-      {models && <div className="sr-success-box"><strong>Connection healthy.</strong> {models.length} chat-capable model{models.length === 1 ? "" : "s"} discovered.</div>}
-      <div className="sr-row"><Button type="submit" className="sr-button-secondary" disabled={busy || key.length < 3}>{busy ? "Testing…" : "Test connection"}</Button><Button type="button" disabled={busy || !models || !name.trim()} onClick={save}>Save provider</Button></div>
+      {models && <div className="provider-validation"><div><span className="sr-status sr-status-success" /><strong>Connection healthy.</strong><span>{models.length} chat-capable model{models.length === 1 ? "" : "s"} discovered.</span></div><div className="provider-model-preview">{models.slice(0, 5).map((model) => <span key={model.id}>{model.name}</span>)}{models.length > 5 && <span>+{models.length - 5} more</span>}</div></div>}
+
+      <div className="provider-connect-actions"><Button type="submit" className="sr-button-secondary" disabled={busy || key.length < 3}>{busy ? "Testing…" : "Test connection"}</Button><Button type="button" disabled={busy || !models || !name.trim()} onClick={save}>Save provider</Button></div>
     </form>
   );
 }

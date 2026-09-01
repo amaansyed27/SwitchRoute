@@ -30,16 +30,20 @@ export function ProvidersClient() {
   }
 
   return (
-    <div className="sr-stack" style={{ gap: 26 }}>
-      <div className="sr-page-header"><div><p className="sr-kicker">UPSTREAM ACCESS</p><h1>Providers</h1><p>Connect credentials once. Keys are validated before storage and behave as write-only secrets afterward.</p></div><Button onClick={() => setAdding(true)}>Connect provider</Button></div>
+    <div className="sr-stack provider-page">
+      <div className="sr-page-header"><div><p className="sr-kicker">02 / UPSTREAM ACCESS</p><h1>Providers</h1><p>Connect credentials once. Validation and model discovery happen before the secret is stored.</p></div><Button onClick={() => setAdding(true)}>Connect provider</Button></div>
       {error && <div className="sr-error">{error}</div>}
       {adding && <ProviderConnectForm onCancel={() => setAdding(false)} onConnected={(provider) => { setProviders((current) => [...current, provider]); setAdding(false); }} />}
-      {!providers.length && !adding ? <EmptyState title="No providers connected" body="Start with Groq, Gemini, or OpenRouter. You can add more later." action={<Button onClick={() => setAdding(true)}>Connect your first provider</Button>} /> : (
-        <div className="sr-stack">
+      {!providers.length && !adding ? <EmptyState title="No providers connected" body="Start with Groq, Gemini, or OpenRouter. One healthy provider is enough to create your first Route." action={<Button onClick={() => setAdding(true)}>Connect your first provider</Button>} /> : (
+        <div className="provider-list">
+          <div className="list-caption"><span>Connection</span><span>Models</span><span>Last validation</span><span>Actions</span></div>
           {providers.map((provider) => {
             const models = provider.metadata?.models ?? [];
-            return <section className="sr-panel" key={provider.id}>
-              <div className="sr-between"><div><div className="sr-row"><StatusDot status={provider.status} /><h2 style={{ margin: 0, fontSize: 20 }}>{provider.display_name}</h2><Badge tone={provider.status === "healthy" ? "success" : "warning"}>{provider.status}</Badge></div><p style={{ margin: "7px 0 0", color: "var(--sr-muted)", fontSize: 13 }}>{provider.provider_kind} · {models.length} discovered models {provider.last_validated_at ? `· tested ${new Date(provider.last_validated_at).toLocaleString()}` : ""}</p></div><div className="sr-row"><Button className="sr-button-secondary" disabled={busyId === provider.id} onClick={() => test(provider)}>{busyId === provider.id ? "Testing…" : "Test"}</Button><Button className="sr-button-danger" disabled={busyId === provider.id} onClick={() => disconnect(provider)}>Disconnect</Button></div></div>
+            return <section className="provider-row" key={provider.id}>
+              <div className="provider-identity"><StatusDot status={provider.status} /><div><div className="sr-row"><strong>{provider.display_name}</strong><Badge tone={provider.status === "healthy" ? "success" : "warning"}>{provider.status}</Badge></div><span>{provider.provider_kind}</span></div></div>
+              <div><strong>{models.length}</strong><span>discovered</span></div>
+              <div><strong>{provider.last_validated_at ? new Date(provider.last_validated_at).toLocaleDateString() : "—"}</strong><span>{provider.last_validated_at ? new Date(provider.last_validated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "not tested"}</span></div>
+              <div className="provider-actions"><Button className="sr-button-secondary" disabled={busyId === provider.id} onClick={() => test(provider)}>{busyId === provider.id ? "Testing…" : "Test"}</Button><Button className="sr-button-danger" disabled={busyId === provider.id} onClick={() => disconnect(provider)}>Disconnect</Button></div>
             </section>;
           })}
         </div>
