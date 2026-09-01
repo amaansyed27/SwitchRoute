@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Brand } from "@/components/brand";
 import { IntegrationPanel } from "@/components/marketing/integration-panel";
+import { LandingMotion } from "@/components/marketing/landing-motion";
 import { RouterVisual } from "@/components/marketing/router-visual";
 
 const providerRail = ["Groq", "Gemini", "OpenRouter", "Priority routes", "Free first", "OpenAI-compatible"];
@@ -8,6 +9,8 @@ const providerRail = ["Groq", "Gemini", "OpenRouter", "Priority routes", "Free f
 export default function LandingPage() {
   return (
     <main className="sr-site-v2">
+      <LandingMotion />
+
       <header className="sr-shell sr-v2-nav">
         <Brand />
         <nav aria-label="Primary navigation">
@@ -18,8 +21,10 @@ export default function LandingPage() {
       </header>
 
       <section className="sr-v2-hero" aria-labelledby="sr-v2-title">
+        <div className="sr-v2-hero-light sr-v2-hero-light-a" aria-hidden="true" />
+        <div className="sr-v2-hero-light sr-v2-hero-light-b" aria-hidden="true" />
         <div className="sr-shell sr-v2-hero-inner">
-          <div className="sr-v2-hero-copy">
+          <div className="sr-v2-hero-copy" data-parallax>
             <p className="sr-kicker">MULTI-PROVIDER ROUTING / ONE OPENAI-COMPATIBLE API</p>
             <h1 id="sr-v2-title">
               <span>One endpoint.</span>
@@ -35,7 +40,8 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="sr-v2-demo-wrap">
+          <div className="sr-v2-demo-wrap" data-parallax>
+            <div className="sr-v2-demo-glow" aria-hidden="true" />
             <div className="sr-v2-orbit sr-v2-orbit-a" aria-hidden="true" />
             <div className="sr-v2-orbit sr-v2-orbit-b" aria-hidden="true" />
             <RouterVisual />
@@ -52,7 +58,7 @@ export default function LandingPage() {
       </section>
 
       <section className="sr-shell sr-v2-explainer">
-        <div className="sr-v2-explainer-head">
+        <div className="sr-v2-explainer-head" data-reveal="section">
           <p className="sr-kicker">THE ROUTE IS THE PRODUCT</p>
           <h2>Provider logic leaves your application code.</h2>
           <p>
@@ -61,17 +67,17 @@ export default function LandingPage() {
         </div>
 
         <div className="sr-v2-route-story" aria-label="How a SwitchRoute request is handled">
-          <article>
+          <article data-reveal="card" style={{ "--reveal-order": 0 } as React.CSSProperties}>
             <span>01</span>
             <div><strong>Connect</strong><p>Validate provider credentials and discover the models available to that account.</p></div>
           </article>
           <div className="sr-v2-story-line" aria-hidden="true"><i /></div>
-          <article>
+          <article data-reveal="card" style={{ "--reveal-order": 1 } as React.CSSProperties}>
             <span>02</span>
             <div><strong>Order</strong><p>Put provider/model targets into the exact priority or free-first order you want.</p></div>
           </article>
           <div className="sr-v2-story-line" aria-hidden="true"><i /></div>
-          <article>
+          <article data-reveal="card" style={{ "--reveal-order": 2 } as React.CSSProperties}>
             <span>03</span>
             <div><strong>Call</strong><p>Use one Route-bound API key and keep <code>{'model="auto"'}</code> in your client.</p></div>
           </article>
@@ -79,8 +85,9 @@ export default function LandingPage() {
       </section>
 
       <section className="sr-v2-switch-stage">
+        <div className="sr-v2-stage-beam" aria-hidden="true" />
         <div className="sr-shell sr-v2-switch-inner">
-          <div className="sr-v2-switch-copy">
+          <div className="sr-v2-switch-copy" data-reveal="section" data-parallax>
             <p className="sr-kicker">CHANGE THE ROUTE, NOT THE APP</p>
             <h2>
               <span>Move a model.</span>
@@ -89,7 +96,7 @@ export default function LandingPage() {
             </h2>
           </div>
 
-          <div className="sr-v2-strategy-visual" aria-label="Route strategies">
+          <div className="sr-v2-strategy-visual" aria-label="Route strategies" data-reveal="visual" data-parallax>
             <div className="sr-v2-strategy-label">ROUTE / production</div>
             <div className="sr-v2-strategy-card sr-v2-strategy-card-main">
               <span>Priority</span>
@@ -106,17 +113,18 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="sr-shell sr-v2-integration">
+      <section className="sr-shell sr-v2-integration" data-reveal="section">
         <IntegrationPanel />
       </section>
 
       <section className="sr-v2-privacy">
+        <div className="sr-v2-privacy-light" aria-hidden="true" />
         <div className="sr-shell sr-v2-privacy-inner">
-          <div>
+          <div data-reveal="section">
             <p className="sr-kicker">ZERO CONTENT RETENTION</p>
             <h2>Your routing layer does not need your conversations.</h2>
           </div>
-          <div className="sr-v2-privacy-copy">
+          <div className="sr-v2-privacy-copy" data-reveal="section">
             <p>
               SwitchRoute keeps the operational metadata needed for routing, health and diagnosis. Prompts, completions, system prompts, tool contents and uploads are not persisted.
             </p>
@@ -126,7 +134,8 @@ export default function LandingPage() {
       </section>
 
       <section className="sr-v2-final">
-        <div className="sr-shell sr-v2-final-inner">
+        <div className="sr-v2-final-radiance" aria-hidden="true" />
+        <div className="sr-shell sr-v2-final-inner" data-reveal="section" data-parallax>
           <p className="sr-kicker">START WITH ONE PROVIDER</p>
           <h2>Build the Route now.<br /><span>Add the rest when you need them.</span></h2>
           <Link className="sr-v2-primary sr-v2-primary-light" href="/login">Open SwitchRoute</Link>
