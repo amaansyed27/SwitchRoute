@@ -1,0 +1,24 @@
+name: Preview source bundle
+
+on:
+  push:
+    branches:
+      - slice/ui-ux-redesign
+    paths-ignore:
+      - '**/*.md'
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package preview source
+        run: tar -czf /tmp/switchroute-preview-source.tgz --exclude=.git --exclude=node_modules .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: switchroute-preview-source
+          path: /tmp/switchroute-preview-source.tgz
+          retention-days: 1
