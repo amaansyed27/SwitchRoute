@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "switchroute-gateway"
+version = "0.1.0"
+description = "SwitchRoute Cloud Core gateway"
+requires-python = ">=3.12"
+dependencies = [
+  "asyncpg==0.30.0",
+  "cryptography==50.0.1",
+  "fastapi==0.141.1",
+  "httpx==0.28.1",
+  "litellm==1.98.0",
+  "orjson==3.12.0",
+  "pydantic-settings==2.15.0",
+  "uvicorn[standard]==0.35.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["services/gateway/src/switchroute"]
