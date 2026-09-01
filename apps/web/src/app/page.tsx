@@ -1,176 +1,143 @@
 import Link from "next/link";
 import { Brand } from "@/components/brand";
+import { IntegrationPanel } from "@/components/marketing/integration-panel";
+import { RouterVisual } from "@/components/marketing/router-visual";
 
-const python = `from openai import OpenAI
-
-client = OpenAI(
-    api_key="sr_live_...",
-    base_url="https://api.switchroute.dawnlightlabs.com/v1"
-)
-
-response = client.chat.completions.create(
-    model="auto",
-    messages=[{"role": "user", "content": "Hello"}]
-)`;
-
-const routeTargets = [
-  ["01", "Groq", "qwen/qwen3-32b", "free-capable"],
-  ["02", "Gemini", "gemini-2.5-flash", "free-capable"],
-  ["03", "OpenRouter", "fallback", "paid allowed"],
-] as const;
-
-const flow = [
-  ["01", "Connect", "Add a provider key, validate it, and discover the models available to that account."],
-  ["02", "Order", "Build one Route by placing provider/model targets in the fallback order you actually want."],
-  ["03", "Key", "Generate a live or test key bound to that Route. The secret is shown once."],
-  ["04", "Call", "Point your OpenAI-compatible client at SwitchRoute and keep model=\"auto\"."],
-] as const;
+const providers = ["Groq", "Gemini", "OpenRouter", "DeepSeek", "Ollama", "vLLM", "LM Studio"];
 
 export default function LandingPage() {
   return (
-    <main className="marketing-page first-light-marketing">
-      <header className="sr-shell marketing-nav first-light-nav">
+    <main className="sr-site-v2">
+      <header className="sr-shell sr-v2-nav">
         <Brand />
-        <nav className="marketing-nav-links" aria-label="Primary navigation">
+        <nav aria-label="Primary navigation">
           <Link href="/docs/getting-started">Docs</Link>
           <Link href="/login">Sign in</Link>
-          <Link className="sr-button landing-nav-cta" href="/login">Start routing</Link>
+          <Link className="sr-v2-nav-cta" href="/login">Start routing</Link>
         </nav>
       </header>
 
-      <section className="landing-hero" aria-labelledby="landing-title">
-        <div className="landing-hero-frame sr-shell">
-          <div className="landing-hero-meta">
-            <p className="sr-kicker">SWITCHROUTE / CONTROL PLANE</p>
-            <p>OPENAI-COMPATIBLE · MULTI-PROVIDER</p>
-          </div>
-
-          <div className="landing-hero-copy">
-            <h1 id="landing-title">
-              <span className="landing-line">One API.</span>
-              <span className="landing-line">Every model.</span>
-              <span className="landing-line landing-line-accent">Your order.</span>
+      <section className="sr-v2-hero" aria-labelledby="sr-v2-title">
+        <div className="sr-shell sr-v2-hero-inner">
+          <div className="sr-v2-hero-copy">
+            <p className="sr-kicker">MULTI-PROVIDER ROUTING / ONE OPENAI-COMPATIBLE API</p>
+            <h1 id="sr-v2-title">
+              <span>One endpoint.</span>
+              <span>A whole Route</span>
+              <span className="sr-v2-hero-accent">behind it.</span>
             </h1>
-            <div className="landing-hero-intro">
-              <p>Connect the providers you already use, arrange a Route, then send your application to one endpoint.</p>
-              <div className="landing-hero-actions">
-                <Link className="sr-button" href="/login">Create your first Route</Link>
-                <Link className="sr-text-link" href="/docs/getting-started">5-minute setup ↗</Link>
-              </div>
+            <p className="sr-v2-hero-lede">
+              Connect the providers you already use. Put their models in order. SwitchRoute handles the fallback while your app keeps one client and one key.
+            </p>
+            <div className="sr-v2-hero-actions">
+              <Link className="sr-v2-primary" href="/login">Build your first Route</Link>
+              <Link className="sr-v2-secondary" href="/docs/getting-started">Read the 5-minute setup</Link>
             </div>
           </div>
 
-          <div className="landing-route-stage" aria-label="Example SwitchRoute priority route">
-            <div className="landing-route-stage-head">
-              <div><span>ROUTE</span><strong>coding</strong></div>
-              <div><span>STRATEGY</span><strong>free first</strong></div>
-              <div className="landing-route-ready"><i className="sr-status sr-status-success" /><strong>ready</strong></div>
+          <div className="sr-v2-demo-wrap">
+            <div className="sr-v2-orbit sr-v2-orbit-a" aria-hidden="true" />
+            <div className="sr-v2-orbit sr-v2-orbit-b" aria-hidden="true" />
+            <RouterVisual />
+          </div>
+        </div>
+      </section>
+
+      <section className="sr-v2-provider-band" aria-label="Supported provider ecosystem">
+        <div className="sr-v2-provider-track">
+          {[...providers, ...providers].map((provider, index) => (
+            <span key={`${provider}-${index}`}>{provider}</span>
+          ))}
+        </div>
+      </section>
+
+      <section className="sr-shell sr-v2-explainer">
+        <div className="sr-v2-explainer-head">
+          <p className="sr-kicker">THE ROUTE IS THE PRODUCT</p>
+          <h2>Provider logic leaves your application code.</h2>
+          <p>
+            Your app talks to SwitchRoute. The Route decides which eligible provider/model target receives the request and what happens when that target is unavailable.
+          </p>
+        </div>
+
+        <div className="sr-v2-route-story" aria-label="How a SwitchRoute request is handled">
+          <article>
+            <span>01</span>
+            <div><strong>Connect</strong><p>Validate provider credentials and discover the models available to that account.</p></div>
+          </article>
+          <div className="sr-v2-story-line" aria-hidden="true"><i /></div>
+          <article>
+            <span>02</span>
+            <div><strong>Order</strong><p>Put provider/model targets into the exact priority or free-first order you want.</p></div>
+          </article>
+          <div className="sr-v2-story-line" aria-hidden="true"><i /></div>
+          <article>
+            <span>03</span>
+            <div><strong>Call</strong><p>Use one Route-bound API key and keep <code>model="auto"</code> in your client.</p></div>
+          </article>
+        </div>
+      </section>
+
+      <section className="sr-v2-switch-stage">
+        <div className="sr-shell sr-v2-switch-inner">
+          <div className="sr-v2-switch-copy">
+            <p className="sr-kicker">CHANGE THE ROUTE, NOT THE APP</p>
+            <h2>
+              <span>Move a model.</span>
+              <span>Change a fallback.</span>
+              <span className="sr-v2-switch-muted">Ship no client patch.</span>
+            </h2>
+          </div>
+
+          <div className="sr-v2-strategy-visual" aria-label="Route strategies">
+            <div className="sr-v2-strategy-label">ROUTE / production</div>
+            <div className="sr-v2-strategy-card sr-v2-strategy-card-main">
+              <span>Priority</span>
+              <strong>01 → 02 → 03</strong>
+              <small>Use the first eligible target, then fall back in order.</small>
             </div>
-            <div className="landing-route-track" aria-hidden="true"><span /></div>
-            <div className="landing-route-targets">
-              {routeTargets.map(([index, provider, model, note]) => (
-                <div className="landing-route-target" key={index}>
-                  <span>{index}</span>
-                  <div><strong>{provider}</strong><small>{model}</small></div>
-                  <em>{note}</em>
-                  <i className="sr-status sr-status-success" aria-hidden="true" />
-                </div>
-              ))}
+            <div className="sr-v2-strategy-card sr-v2-strategy-card-float">
+              <span>Free first</span>
+              <strong>limits before spend</strong>
+              <small>Prefer free-capable targets while they are eligible.</small>
             </div>
-            <div className="landing-route-stage-foot">
-              <span>POST /v1/chat/completions</span>
-              <strong>model = auto</strong>
-            </div>
-          </div>
-
-          <div className="landing-hero-progress" aria-hidden="true"><span /></div>
-        </div>
-      </section>
-
-      <section className="landing-manifesto">
-        <div className="sr-shell landing-manifesto-frame">
-          <div className="landing-section-bar"><span>01 / WHY</span><span>PROVIDER CHOICE LEAVES YOUR APP</span></div>
-          <h2>
-            <span>Your providers.</span>
-            <span>One routing layer.</span>
-          </h2>
-          <p>SwitchRoute keeps provider choice, fallback order and route health outside application code. Change the Route without changing the client.</p>
-        </div>
-      </section>
-
-      <section className="landing-flow">
-        <div className="sr-shell landing-flow-frame">
-          <div className="landing-section-bar"><span>02 / SETUP</span><span>FOUR MOVES TO A WORKING REQUEST</span></div>
-          <div className="landing-flow-heading">
-            <p className="sr-kicker">FROM PROVIDER KEY TO API CALL</p>
-            <h2>Routing should feel smaller than the problem it removes.</h2>
-          </div>
-          <div className="landing-flow-list">
-            {flow.map(([index, title, body]) => (
-              <article className="landing-flow-row" key={index}>
-                <span>{index}</span>
-                <h3>{title}</h3>
-                <p>{body}</p>
-              </article>
-            ))}
+            <div className="sr-v2-strategy-signal" aria-hidden="true"><i /><i /><i /></div>
           </div>
         </div>
       </section>
 
-      <section className="landing-priority">
-        <div className="sr-shell landing-priority-frame">
-          <div className="landing-section-bar"><span>03 / ROUTES</span><span>ORDERED FALLBACK · NOT A NODE GRAPH</span></div>
-          <div className="landing-priority-copy">
-            <h2>Exactly one target at a time.</h2>
-            <p>Each request starts with the first eligible target. If that target fails before output begins, SwitchRoute can move down the stack. No model output is blended or chained into another.</p>
-          </div>
-          <div className="landing-priority-sequence" aria-label="Route fallback sequence">
-            <div><span>01</span><strong>Check eligibility</strong><small>health · limits · route strategy</small></div>
-            <div><span>02</span><strong>Call target</strong><small>one provider / one model</small></div>
-            <div><span>03</span><strong>Fallback if needed</strong><small>before streaming begins</small></div>
-          </div>
-        </div>
+      <section className="sr-shell sr-v2-integration">
+        <IntegrationPanel />
       </section>
 
-      <section className="landing-code">
-        <div className="sr-shell landing-code-frame">
-          <div className="landing-section-bar"><span>04 / CLIENT</span><span>KEEP THE OPENAI SHAPE</span></div>
-          <div className="landing-code-grid">
-            <div className="landing-code-copy">
-              <p className="sr-kicker">THE CLIENT STAYS FAMILIAR</p>
-              <h2>Change the base URL. Move provider logic out.</h2>
-              <p>Use your normal OpenAI-compatible client. The SwitchRoute key selects the Route; the Route decides where the request should go.</p>
-            </div>
-            <div className="landing-code-window">
-              <div className="landing-code-window-head"><span>python</span><span>switchroute.py</span></div>
-              <pre className="sr-code"><code>{python}</code></pre>
-            </div>
+      <section className="sr-v2-privacy">
+        <div className="sr-shell sr-v2-privacy-inner">
+          <div>
+            <p className="sr-kicker">ZERO CONTENT RETENTION</p>
+            <h2>Your routing layer does not need your conversations.</h2>
+          </div>
+          <div className="sr-v2-privacy-copy">
+            <p>
+              SwitchRoute keeps the operational metadata needed for routing, health and diagnosis. Prompts, completions, system prompts, tool contents and uploads are not persisted.
+            </p>
+            <Link href="/docs/security">Read the security model →</Link>
           </div>
         </div>
       </section>
 
-      <section className="landing-privacy">
-        <div className="sr-shell landing-privacy-frame">
-          <div className="landing-section-bar"><span>05 / DATA</span><span>ZERO CONTENT RETENTION</span></div>
-          <h2>Routing metadata, not your conversations.</h2>
-          <p>SwitchRoute stores the operational metadata required for routing, health and diagnosis. Prompts, completions, system prompts, tool contents and uploads are not persisted.</p>
-          <Link className="sr-text-link" href="/docs/security">Read the security model ↗</Link>
+      <section className="sr-v2-final">
+        <div className="sr-shell sr-v2-final-inner">
+          <p className="sr-kicker">START WITH ONE PROVIDER</p>
+          <h2>Build the Route now.<br /><span>Add the rest when you need them.</span></h2>
+          <Link className="sr-v2-primary sr-v2-primary-light" href="/login">Open SwitchRoute</Link>
         </div>
       </section>
 
-      <section className="landing-final">
-        <div className="sr-shell landing-final-frame">
-          <p className="sr-kicker">READY WHEN YOUR FIRST PROVIDER IS</p>
-          <h2><span>Connect one.</span><span>Route the rest later.</span></h2>
-          <Link className="sr-button" href="/login">Open SwitchRoute</Link>
-        </div>
-      </section>
-
-      <footer className="landing-footer">
-        <div className="sr-shell landing-footer-inner">
+      <footer className="sr-v2-footer">
+        <div className="sr-shell sr-v2-footer-inner">
           <Brand />
           <span>Dawnlight Labs</span>
-          <span>OpenAI-compatible multi-provider routing.</span>
+          <div><Link href="/docs/getting-started">Docs</Link><Link href="/login">Sign in</Link></div>
         </div>
       </footer>
     </main>
