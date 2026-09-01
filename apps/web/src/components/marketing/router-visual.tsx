@@ -19,7 +19,7 @@ export function RouterVisual() {
           <div className="sr-demo-request">
             <span>POST</span>
             <strong>/v1/chat/completions</strong>
-            <code>model: "auto"</code>
+            <code>{'model: "auto"'}</code>
           </div>
         </div>
 
