@@ -5,6 +5,7 @@ import "./globals.css";
 import "./product.css";
 import "./refinement.css";
 import "./live-review.css";
+import "./landing-v2.css";
 
 const display = Orbitron({
   subsets: ["latin"],
