@@ -26,7 +26,8 @@ export function RouteForm({ providers, route, onSaved, onCancel }: { providers: 
   const [busy, setBusy] = useState(false);
 
   function addTarget() {
-    const provider = providers[0]; const model = provider?.metadata.models?.[0];
+    const provider = providers[0];
+    const model = provider?.metadata.models?.[0];
     if (!provider || !model) return;
     setTargets((current) => [...current, { id: crypto.randomUUID(), provider_connection_id: provider.id, model_id: model.id, billing_tier: model.billing_tier, enabled: true }]);
   }
@@ -42,15 +43,32 @@ export function RouteForm({ providers, route, onSaved, onCancel }: { providers: 
   }
 
   return (
-    <form className="sr-panel sr-form-grid" onSubmit={submit}>
-      <div className="sr-between"><div><p className="sr-kicker">{route ? "EDIT ROUTE" : "NEW ROUTE"}</p><h2 style={{ margin: 0 }}>{route ? route.name : "Build a priority stack"}</h2></div><Button type="button" className="sr-button-secondary" onClick={onCancel}>Close</Button></div>
-      <div className="route-form-grid"><div className="sr-field"><Label htmlFor="route-name">Name</Label><Input id="route-name" required value={name} onChange={(event) => { setName(event.target.value); if (!route) setSlug(slugify(event.target.value)); }} placeholder="Coding" /></div><div className="sr-field"><Label htmlFor="route-slug">Slug</Label><Input id="route-slug" required value={slug} onChange={(event) => setSlug(slugify(event.target.value))} placeholder="coding" /></div><div className="sr-field"><Label htmlFor="strategy">Strategy</Label><select id="strategy" className="sr-select" value={strategy} onChange={(event) => setStrategy(event.target.value as RouteRecord["strategy"])}><option value="priority">Priority</option><option value="free_first">Free First</option></select></div></div>
-      <label className="sr-row" style={{ fontSize: 13 }}><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /> Route enabled</label>
-      <div className="sr-between"><div><strong>Targets</strong><p style={{ color: "var(--sr-muted)", margin: "4px 0 0", fontSize: 13 }}>Drag to reorder. SwitchRoute chooses one target for each request.</p></div><Button type="button" className="sr-button-secondary" disabled={!providers.some((item) => item.metadata.models?.length)} onClick={addTarget}>+ Add model</Button></div>
+    <form className="route-builder" onSubmit={submit}>
+      <div className="route-builder-head">
+        <div><p className="sr-kicker">{route ? "EDIT ROUTE" : "NEW ROUTE"}</p><h2>{route ? route.name : "Build a priority stack"}</h2><p>The first eligible target wins. Reorder the stack to change fallback priority.</p></div>
+        <Button type="button" className="sr-button-secondary" onClick={onCancel}>Close</Button>
+      </div>
+
+      <div className="route-builder-fields">
+        <div className="sr-field"><Label htmlFor="route-name">Name</Label><Input id="route-name" required value={name} onChange={(event) => { setName(event.target.value); if (!route) setSlug(slugify(event.target.value)); }} placeholder="Coding" /></div>
+        <div className="sr-field"><Label htmlFor="route-slug">Slug</Label><Input id="route-slug" required value={slug} onChange={(event) => setSlug(slugify(event.target.value))} placeholder="coding" /></div>
+      </div>
+
+      <fieldset className="route-strategy">
+        <legend>Selection strategy</legend>
+        <div className="route-strategy-options">
+          <button type="button" data-selected={strategy === "priority"} aria-pressed={strategy === "priority"} onClick={() => setStrategy("priority")}><strong>Priority</strong><span>Use the stack exactly as ordered.</span></button>
+          <button type="button" data-selected={strategy === "free_first"} aria-pressed={strategy === "free_first"} onClick={() => setStrategy("free_first")}><strong>Free first</strong><span>Prefer free-capable targets before paid capacity.</span></button>
+        </div>
+      </fieldset>
+
+      <label className="route-builder-toggle"><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /> Route enabled</label>
+
+      <div className="route-target-heading"><div><strong>Priority stack</strong><p>Drag targets to reorder. SwitchRoute chooses one target per request.</p></div><Button type="button" className="sr-button-secondary" disabled={!providers.some((item) => item.metadata.models?.length)} onClick={addTarget}>+ Add model</Button></div>
       <TargetStack targets={targets} providers={providers} onChange={setTargets} />
       {!targets.length && <div className="sr-error">A Route needs at least one model target.</div>}
       {error && <div className="sr-error">{error}</div>}
-      <div className="sr-row"><Button disabled={busy || !name || !slug || !targets.length}>{busy ? "Saving…" : "Save Route"}</Button><Button type="button" className="sr-button-secondary" onClick={onCancel}>Cancel</Button></div>
+      <div className="route-builder-actions"><Button type="button" className="sr-button-secondary" onClick={onCancel}>Cancel</Button><Button disabled={busy || !name || !slug || !targets.length}>{busy ? "Saving…" : "Save Route"}</Button></div>
     </form>
   );
 }
