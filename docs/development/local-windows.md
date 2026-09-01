@@ -6,27 +6,23 @@ Use PowerShell from the repository root. Normal product testing uses a hosted Su
 
 In Supabase **Authentication → URL Configuration**, allow:
 
-- Site URL: `http://localhost:3000`
+- Site URL: `http://localhost:3000` while testing locally
 - Redirect URL: `http://localhost:3000/auth/callback`
 - Redirect URL: `http://localhost:3000/auth/callback?next=/onboarding`
-- Redirect URL: `http://localhost:3000/onboarding`
+- Redirect URL: `http://localhost:3000/auth/confirm?next=/onboarding`
 - Optional equivalents using `http://127.0.0.1:3000`
 
 ### Email magic-link templates
 
 SwitchRoute uses Supabase SSR cookies. Email links therefore verify a token hash on the server instead of relying on a PKCE verifier surviving the trip through the mail client.
 
-In **Authentication → Email Templates**, update both **Confirm signup** and **Magic Link** so the link target is:
-
-```text
-{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/onboarding
-```
-
-For example, the button/link in each template can use:
+In **Authentication → Email Templates**, update both **Confirm signup** and **Magic Link** so the link uses the redirect supplied by SwitchRoute and appends the token hash:
 
 ```html
-<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/onboarding">Continue to SwitchRoute</a>
+<a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email">Continue to SwitchRoute</a>
 ```
+
+SwitchRoute supplies `/auth/confirm?next=/onboarding` as `.RedirectTo`, so this works for localhost now and for the production origin later without hard-coding either hostname into the email template.
 
 OAuth providers still return through `/auth/callback`; email authentication returns through `/auth/confirm`.
 
