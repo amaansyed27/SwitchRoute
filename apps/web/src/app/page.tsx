@@ -3,7 +3,7 @@ import { Brand } from "@/components/brand";
 import { IntegrationPanel } from "@/components/marketing/integration-panel";
 import { RouterVisual } from "@/components/marketing/router-visual";
 
-const providers = ["Groq", "Gemini", "OpenRouter", "DeepSeek", "Ollama", "vLLM", "LM Studio"];
+const providerRail = ["Groq", "Gemini", "OpenRouter", "Priority routes", "Free first", "OpenAI-compatible"];
 
 export default function LandingPage() {
   return (
@@ -43,10 +43,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="sr-v2-provider-band" aria-label="Supported provider ecosystem">
+      <section className="sr-v2-provider-band" aria-label="SwitchRoute capabilities and connected providers">
         <div className="sr-v2-provider-track">
-          {[...providers, ...providers].map((provider, index) => (
-            <span key={`${provider}-${index}`}>{provider}</span>
+          {[...providerRail, ...providerRail].map((item, index) => (
+            <span key={`${item}-${index}`}>{item}</span>
           ))}
         </div>
       </section>
