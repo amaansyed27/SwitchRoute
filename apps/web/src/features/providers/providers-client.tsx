@@ -12,12 +12,20 @@ export function ProvidersClient() {
   const [adding, setAdding] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     try { setProviders(await manageFetch<ProviderConnection[]>("providers")); }
     catch (err) { setError(err instanceof Error ? err.message : "Providers could not be loaded."); }
-    finally { setLoading(false); }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    let active = true;
+    void manageFetch<ProviderConnection[]>("providers")
+      .then((data) => { if (active) setProviders(data); })
+      .catch((err) => { if (active) setError(err instanceof Error ? err.message : "Providers could not be loaded."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   async function test(provider: ProviderConnection) {
     setBusyId(provider.id); setError(null);
