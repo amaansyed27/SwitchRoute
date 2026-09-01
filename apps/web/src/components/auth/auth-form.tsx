@@ -4,9 +4,14 @@ import { FormEvent, useState } from "react";
 import { Button, Input, Label } from "@switchroute/ui";
 import { createClient } from "@/lib/supabase/client";
 
-export function AuthForm() {
+const authErrorMessages: Record<string, string> = {
+  auth_callback: "That sign-in callback could not create a session. Request a new link or try the provider again.",
+  auth_confirm: "That email sign-in link could not be verified. Request a fresh link and try again.",
+};
+
+export function AuthForm({ authError }: { authError?: string }) {
   const [email, setEmail] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(authError ? (authErrorMessages[authError] ?? "Sign-in could not be completed.") : null);
   const [busy, setBusy] = useState(false);
 
   async function oauth(provider: "github" | "google") {
