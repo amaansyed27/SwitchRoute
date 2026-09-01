@@ -19,14 +19,16 @@ export function KeysClient() {
   const [error, setError] = useState<string | null>(null);
 
   const applyData = useCallback((keyData: VirtualKey[], routeData: RouteRecord[]) => { const activeRoutes = routeData.filter((route) => route.enabled); setKeys(keyData); setRoutes(activeRoutes); setRouteId((current) => current || activeRoutes[0]?.id || ""); }, []);
-  const load = useCallback(async () => {
-    try {
-      const [keyData, routeData] = await Promise.all([manageFetch<VirtualKey[]>("keys"), manageFetch<RouteRecord[]>("routes")]);
-      applyData(keyData, routeData);
-    } catch (err) { setError(err instanceof Error ? err.message : "API keys could not be loaded."); }
-    finally { setLoading(false); }
+  const load = useCallback(async () => { const [keyData, routeData] = await Promise.all([manageFetch<VirtualKey[]>("keys"), manageFetch<RouteRecord[]>("routes")]); applyData(keyData, routeData); }, [applyData]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([manageFetch<VirtualKey[]>("keys"), manageFetch<RouteRecord[]>("routes")])
+      .then(([keyData, routeData]) => { if (active) applyData(keyData, routeData); })
+      .catch((err) => { if (active) setError(err instanceof Error ? err.message : "API keys could not be loaded."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [applyData]);
-  useEffect(() => { void load(); }, [load]);
 
   async function create(event: FormEvent) { event.preventDefault(); setError(null); try { const result = await manageFetch<CreatedKey>("keys", { method: "POST", body: JSON.stringify({ route_id: routeId, environment, name }) }); setCreated(result); setAdding(false); await load(); } catch (err) { setError(err instanceof Error ? err.message : "API key could not be created."); } }
   async function revoke(key: VirtualKey) { if (!window.confirm(`Revoke ${key.name}? Requests using it will stop immediately.`)) return; try { await manageFetch(`keys/${key.id}`, { method: "DELETE" }); await load(); } catch (err) { setError(err instanceof Error ? err.message : "API key could not be revoked."); } }
