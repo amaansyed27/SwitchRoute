@@ -39,7 +39,7 @@ export function AuthForm({ authError }: { authError?: string }) {
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOtp({
         email,
-        options: { emailRedirectTo: `${window.location.origin}/onboarding` },
+        options: { emailRedirectTo: `${window.location.origin}/auth/confirm?next=/onboarding` },
       });
       setMessage(error ? error.message : "Check your email for the secure sign-in link.");
     } catch (error) {
