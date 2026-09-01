@@ -33,8 +33,8 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Capture live preview
         env:
-          PREVIEW: https://switchroute-ui-preview-v2-5xzsvekv6-amaan-syeds-projects.vercel.app
-          SHARE: _vercel_share=RNdZg8fQMI2ada9E8Rv524JLgbTCLpPE
+          PREVIEW: https://switchroute-ui-preview-v2-f5arme1ja-amaan-syeds-projects.vercel.app
+          SHARE: _vercel_share=nI2xn6OiAyXx7Rkemttdg4BjlUidqsQr
         run: |
           mkdir -p screenshots
           npx playwright screenshot --browser=chromium --viewport-size="1440,1000" "$PREVIEW/?$SHARE" screenshots/home-desktop.png
