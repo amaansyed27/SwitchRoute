@@ -7,17 +7,18 @@ import { Brand } from "@/components/brand";
 import { createClient } from "@/lib/supabase/client";
 
 const nav = [
-  ["/dashboard", "Dashboard"],
-  ["/providers", "Providers"],
-  ["/routes", "Routes"],
-  ["/api-keys", "API Keys"],
-  ["/activity", "Activity"],
-  ["/docs/getting-started", "Docs"],
+  { href: "/dashboard", label: "Overview", index: "01" },
+  { href: "/providers", label: "Providers", index: "02" },
+  { href: "/routes", label: "Routes", index: "03" },
+  { href: "/api-keys", label: "API Keys", index: "04" },
+  { href: "/activity", label: "Activity", index: "05" },
+  { href: "/docs/getting-started", label: "Docs", index: "06" },
 ] as const;
 
 export function AppShell({ children, email }: { children: React.ReactNode; email?: string }) {
   const pathname = usePathname();
   const router = useRouter();
+  const current = nav.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
 
   async function signOut() {
     await createClient().auth.signOut();
@@ -28,19 +29,41 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
   return (
     <div className="app-shell">
       <aside className="app-sidebar">
-        <Brand href="/dashboard" />
+        <div className="app-brand-block">
+          <Brand href="/dashboard" />
+          <span className="app-workspace-label">Personal workspace</span>
+        </div>
         <nav className="app-nav" aria-label="Product navigation">
-          {nav.map(([href, label]) => (
-            <Link key={href} href={href} data-active={pathname === href || pathname.startsWith(`${href}/`)}>{label}</Link>
+          {nav.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              data-active={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+            >
+              <span className="app-nav-index">{item.index}</span>
+              <span>{item.label}</span>
+            </Link>
           ))}
         </nav>
         <div className="app-sidebar-foot">
-          <div style={{ color: "var(--sr-muted)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis" }}>{email}</div>
-          <Button className="sr-button-secondary" style={{ width: "100%", marginTop: 10 }} onClick={signOut}>Sign out</Button>
+          <div className="app-account">
+            <span className="sr-status sr-status-success" aria-hidden="true" />
+            <div>
+              <span>Signed in</span>
+              <strong title={email}>{email ?? "SwitchRoute user"}</strong>
+            </div>
+          </div>
+          <Button className="sr-button-secondary app-signout" onClick={signOut}>Sign out</Button>
         </div>
       </aside>
       <div className="app-main">
-        <header className="app-topbar"><span>Personal workspace</span><span className="sr-kicker">CLOUD CORE</span></header>
+        <header className="app-topbar">
+          <div className="app-location">
+            <span className="sr-kicker">CONTROL PLANE</span>
+            <span>{current?.label ?? "SwitchRoute"}</span>
+          </div>
+          <span className="app-retention">Zero content retention</span>
+        </header>
         <main className="app-content">{children}</main>
       </div>
     </div>
