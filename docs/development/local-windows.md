@@ -4,11 +4,27 @@ Use PowerShell from the repository root. Normal product testing uses a hosted Su
 
 ## 1. Configure hosted Supabase
 
-In Supabase Auth URL Configuration, allow:
+In Supabase **Authentication → URL Configuration**, allow:
 
-- Site URL: `http://localhost:3000`
+- Site URL: `http://localhost:3000` while testing locally
 - Redirect URL: `http://localhost:3000/auth/callback`
-- Optional redirect: `http://127.0.0.1:3000/auth/callback`
+- Redirect URL: `http://localhost:3000/auth/callback?next=/onboarding`
+- Redirect URL: `http://localhost:3000/auth/confirm?next=/onboarding`
+- Optional equivalents using `http://127.0.0.1:3000`
+
+### Email magic-link templates
+
+SwitchRoute uses Supabase SSR cookies. Email links therefore verify a token hash on the server instead of relying on a PKCE verifier surviving the trip through the mail client.
+
+In **Authentication → Email Templates**, update both **Confirm signup** and **Magic Link** so the link uses the redirect supplied by SwitchRoute and appends the token hash:
+
+```html
+<a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email">Continue to SwitchRoute</a>
+```
+
+SwitchRoute supplies `/auth/confirm?next=/onboarding` as `.RedirectTo`, so this works for localhost now and for the production origin later without hard-coding either hostname into the email template.
+
+OAuth providers still return through `/auth/callback`; email authentication returns through `/auth/confirm`.
 
 Copy `.env.example` to `.env`, then replace the Gateway values with the hosted project URL, publishable key, and the **Session Pooler** database connection string. Keep `sslmode=require` on the hosted database URL.
 
@@ -53,7 +69,7 @@ npm run dev:web
 
 Web: `http://localhost:3000`
 
-Email magic-link auth works with hosted Supabase after the local callback URL is allow-listed. GitHub and Google buttons additionally require those OAuth providers to be configured in the Supabase dashboard.
+Email magic-link auth works with hosted Supabase after the local URLs and token-hash email templates above are configured. GitHub and Google buttons additionally require those OAuth providers to be configured in the Supabase dashboard.
 
 ## Optional: database/RLS tests locally
 

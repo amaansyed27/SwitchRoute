@@ -1,0 +1,61 @@
+/* Browser-review corrections for Landing V2. Keep motion legible at every frame. */
+
+@keyframes v2HeadlineIn {
+  from {
+    opacity: .72;
+    transform: translateY(14px) scale(.994);
+    filter: none;
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes v2DemoIn {
+  from {
+    opacity: .86;
+    transform: translateY(18px) rotateX(2deg) scale(.992);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.sr-v2-hero-copy h1 span {
+  animation-duration: .58s;
+}
+
+.sr-v2-hero-copy h1 span:nth-child(2) {
+  animation-delay: 55ms;
+}
+
+.sr-v2-hero-copy h1 span:nth-child(3) {
+  animation-delay: 110ms;
+}
+
+.sr-demo {
+  animation-duration: .62s;
+  animation-delay: 80ms;
+}
+
+@media (max-width: 680px) {
+  .sr-v2-hero-copy h1 span,
+  .sr-demo {
+    animation: none;
+  }
+
+  .sr-v2-hero-inner {
+    padding-top: 54px;
+  }
+
+  .sr-v2-hero-copy h1 {
+    font-size: clamp(43px, 13.2vw, 62px);
+  }
+
+  .sr-v2-demo-wrap {
+    margin-top: 40px;
+  }
+}

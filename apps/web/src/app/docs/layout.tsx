@@ -3,5 +3,23 @@ import { Brand } from "@/components/brand";
 import { DocsNav } from "@/components/docs/docs-nav";
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
-  return <main><div className="sr-shell marketing-nav"><Brand /><div className="sr-row"><Link href="/dashboard">Dashboard</Link><Link className="sr-button sr-button-secondary" href="/login">Sign in</Link></div></div><div className="docs-shell"><DocsNav /><article className="docs-content">{children}</article></div></main>;
+  return (
+    <main className="docs-page">
+      <header className="docs-header">
+        <div className="docs-header-inner">
+          <Brand />
+          <span className="docs-wordmark">Documentation</span>
+          <nav className="docs-header-links" aria-label="Documentation utilities">
+            <Link href="/">Home</Link>
+            <Link href="/dashboard">Dashboard</Link>
+            <Link className="docs-signin" href="/login">Sign in</Link>
+          </nav>
+        </div>
+      </header>
+      <div className="docs-layout">
+        <aside className="docs-sidebar"><DocsNav /></aside>
+        <article className="docs-content">{children}</article>
+      </div>
+    </main>
+  );
 }
