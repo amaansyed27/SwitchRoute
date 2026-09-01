@@ -40,10 +40,11 @@ jobs:
           npx playwright screenshot --browser=chromium --viewport-size="1440,1000" --full-page "$PREVIEW/" screenshots/home-full.png
           npx playwright screenshot --browser=chromium --viewport-size="1440,1000" "$PREVIEW/docs/getting-started" screenshots/docs-desktop.png
           npx playwright screenshot --browser=chromium --viewport-size="1440,1000" "$PREVIEW/login" screenshots/login-desktop.png
-          npx playwright screenshot --browser=chromium --device="iPhone 13" "$PREVIEW/" screenshots/home-mobile.png
-          npx playwright screenshot --browser=chromium --device="iPhone 13" "$PREVIEW/docs/getting-started" screenshots/docs-mobile.png
-          npx playwright screenshot --browser=chromium --device="iPhone 13" "$PREVIEW/login" screenshots/login-mobile.png
+          npx playwright screenshot --browser=chromium --viewport-size="390,844" "$PREVIEW/" screenshots/home-mobile.png
+          npx playwright screenshot --browser=chromium --viewport-size="390,844" "$PREVIEW/docs/getting-started" screenshots/docs-mobile.png
+          npx playwright screenshot --browser=chromium --viewport-size="390,844" "$PREVIEW/login" screenshots/login-mobile.png
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: switchroute-preview-screenshots
           path: screenshots
