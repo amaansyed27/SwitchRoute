@@ -33,17 +33,65 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Capture live preview
         env:
-          PREVIEW: https://switchroute-ui-preview-v2-f5arme1ja-amaan-syeds-projects.vercel.app
-          SHARE: _vercel_share=nI2xn6OiAyXx7Rkemttdg4BjlUidqsQr
+          PREVIEW: https://switchroute-ui-preview-v2-mgeh3m11o-amaan-syeds-projects.vercel.app
+          SHARE: _vercel_share=ZClaPUTCz6Ft2GUWfPRFEyBIcFjcnAMH
         run: |
           mkdir -p screenshots
-          npx playwright screenshot --browser=chromium --viewport-size="1440,1000" "$PREVIEW/?$SHARE" screenshots/home-desktop.png
-          npx playwright screenshot --browser=chromium --viewport-size="1440,1000" --full-page "$PREVIEW/?$SHARE" screenshots/home-full.png
-          npx playwright screenshot --browser=chromium --viewport-size="1440,1000" "$PREVIEW/docs/getting-started?$SHARE" screenshots/docs-desktop.png
-          npx playwright screenshot --browser=chromium --viewport-size="1440,1000" "$PREVIEW/login?$SHARE" screenshots/login-desktop.png
-          npx playwright screenshot --browser=chromium --viewport-size="390,844" "$PREVIEW/?$SHARE" screenshots/home-mobile.png
-          npx playwright screenshot --browser=chromium --viewport-size="390,844" "$PREVIEW/docs/getting-started?$SHARE" screenshots/docs-mobile.png
-          npx playwright screenshot --browser=chromium --viewport-size="390,844" "$PREVIEW/login?$SHARE" screenshots/login-mobile.png
+          node <<'NODE'
+          const { chromium } = require('playwright');
+
+          const preview = process.env.PREVIEW;
+          const share = process.env.SHARE;
+          const withShare = (path = '/') => `${preview}${path}?${share}`;
+
+          async function revealPage(page) {
+            await page.evaluate(async () => {
+              const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+              const height = document.documentElement.scrollHeight;
+              for (let y = 0; y < height; y += Math.max(420, window.innerHeight * 0.65)) {
+                window.scrollTo({ top: y, behavior: 'instant' });
+                await sleep(110);
+              }
+              window.scrollTo({ top: 0, behavior: 'instant' });
+              await sleep(220);
+            });
+          }
+
+          (async () => {
+            const browser = await chromium.launch();
+
+            const desktop = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+            await desktop.goto(withShare('/'), { waitUntil: 'networkidle' });
+            await desktop.waitForTimeout(1100);
+            await desktop.screenshot({ path: 'screenshots/home-desktop.png' });
+            await revealPage(desktop);
+            await desktop.screenshot({ path: 'screenshots/home-full.png', fullPage: true });
+            await desktop.evaluate(() => window.scrollTo({ top: Math.round(document.documentElement.scrollHeight * 0.34), behavior: 'instant' }));
+            await desktop.waitForTimeout(320);
+            await desktop.screenshot({ path: 'screenshots/home-route-stage.png' });
+            await desktop.evaluate(() => window.scrollTo({ top: Math.round(document.documentElement.scrollHeight * 0.60), behavior: 'instant' }));
+            await desktop.waitForTimeout(320);
+            await desktop.screenshot({ path: 'screenshots/home-integration-stage.png' });
+
+            await desktop.goto(withShare('/docs/getting-started'), { waitUntil: 'networkidle' });
+            await desktop.screenshot({ path: 'screenshots/docs-desktop.png' });
+            await desktop.goto(withShare('/login'), { waitUntil: 'networkidle' });
+            await desktop.screenshot({ path: 'screenshots/login-desktop.png' });
+
+            const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
+            await mobile.goto(withShare('/'), { waitUntil: 'networkidle' });
+            await mobile.waitForTimeout(650);
+            await mobile.screenshot({ path: 'screenshots/home-mobile.png' });
+            await revealPage(mobile);
+            await mobile.screenshot({ path: 'screenshots/home-mobile-full.png', fullPage: true });
+            await mobile.goto(withShare('/docs/getting-started'), { waitUntil: 'networkidle' });
+            await mobile.screenshot({ path: 'screenshots/docs-mobile.png' });
+            await mobile.goto(withShare('/login'), { waitUntil: 'networkidle' });
+            await mobile.screenshot({ path: 'screenshots/login-mobile.png' });
+
+            await browser.close();
+          })();
+          NODE
       - uses: actions/upload-artifact@v4
         if: always()
         with:
