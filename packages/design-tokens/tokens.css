@@ -1,26 +1,39 @@
 :root {
-  --sr-ink: #090b0f;
-  --sr-navy: #0d1118;
-  --sr-panel: #11161f;
-  --sr-panel-2: #171d27;
-  --sr-elevated: #1b222d;
-  --sr-paper: #f2eee3;
-  --sr-paper-soft: #e4ded0;
-  --sr-paper-muted: #aaa494;
-  --sr-gold: #d9aa3c;
-  --sr-gold-strong: #efbd4c;
-  --sr-border: #2a303a;
-  --sr-border-soft: #1e242d;
-  --sr-muted: #858d99;
-  --sr-success: #7eaf82;
-  --sr-warning: #cf9e55;
-  --sr-danger: #c76f72;
-  --sr-radius-xs: 3px;
-  --sr-radius-sm: 5px;
-  --sr-radius-md: 8px;
-  --sr-shadow: 0 24px 70px rgb(0 0 0 / 28%);
-  --sr-max: 1240px;
-  --sr-sidebar: 236px;
+  /* Dawnlight Labs — First Light palette. Ivory and navy are the primary surfaces;
+     warm gold is a signal/accent only. */
+  --sr-ivory: #fcf8f5;
+  --sr-ivory-warm: #f2ebe3;
+  --sr-navy: #071a2d;
+  --sr-navy-deep: #03111d;
+  --sr-navy-soft: #0b2b48;
+  --sr-blue-soft: #315f84;
+  --sr-accent: #d3a14b;
+  --sr-accent-strong: #b47b1d;
+
+  /* Compatibility aliases used throughout Slice 1. */
+  --sr-ink: #071a2d;
+  --sr-panel: #fcf8f5;
+  --sr-panel-2: #f2ebe3;
+  --sr-elevated: #ffffff;
+  --sr-paper: #fcf8f5;
+  --sr-paper-soft: #f2ebe3;
+  --sr-paper-muted: #6e7680;
+  --sr-gold: #d3a14b;
+  --sr-gold-strong: #b47b1d;
+  --sr-border: rgb(7 26 45 / 18%);
+  --sr-border-soft: rgb(7 26 45 / 10%);
+  --sr-border-inverse: rgb(252 248 245 / 20%);
+  --sr-muted: #66717c;
+  --sr-success: #3f7c5d;
+  --sr-warning: #9a671d;
+  --sr-danger: #a44e55;
+
+  --sr-radius-xs: 4px;
+  --sr-radius-sm: 7px;
+  --sr-radius-md: 12px;
+  --sr-shadow: 0 18px 55px rgb(7 26 45 / 9%);
+  --sr-max: 1320px;
+  --sr-sidebar: 232px;
   --sr-space-1: 4px;
   --sr-space-2: 8px;
   --sr-space-3: 12px;
