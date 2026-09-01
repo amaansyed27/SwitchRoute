@@ -73,7 +73,7 @@ export default function LandingPage() {
           <div className="sr-v2-story-line" aria-hidden="true"><i /></div>
           <article>
             <span>03</span>
-            <div><strong>Call</strong><p>Use one Route-bound API key and keep <code>model="auto"</code> in your client.</p></div>
+            <div><strong>Call</strong><p>Use one Route-bound API key and keep <code>{'model="auto"'}</code> in your client.</p></div>
           </article>
         </div>
       </section>
