@@ -99,8 +99,12 @@
           },
           "provider_kind": {
             "enum": [
-              "groq",
+              "openai",
+              "anthropic",
               "gemini",
+              "groq",
+              "xai",
+              "mistral",
               "openrouter",
               "test"
             ],
@@ -126,8 +130,12 @@
           },
           "provider_kind": {
             "enum": [
-              "groq",
+              "openai",
+              "anthropic",
               "gemini",
+              "groq",
+              "xai",
+              "mistral",
               "openrouter",
               "test"
             ],
