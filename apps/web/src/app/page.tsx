@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Brand } from "@/components/brand";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { IntegrationPanel } from "@/components/marketing/integration-panel";
 import { LandingMotion } from "@/components/marketing/landing-motion";
 import { RouterVisual } from "@/components/marketing/router-visual";
@@ -14,6 +15,7 @@ export default function LandingPage() {
       <header className="sr-shell sr-v2-nav">
         <Brand />
         <nav aria-label="Primary navigation">
+          <ThemeSwitcher compact />
           <Link href="/docs/getting-started">Docs</Link>
           <Link href="/login">Sign in</Link>
           <Link className="sr-v2-nav-cta" href="/login">Start routing</Link>
