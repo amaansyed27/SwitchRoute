@@ -21,24 +21,24 @@ export function DashboardClient() {
   useEffect(() => { manageFetch<Summary>("dashboard").then(setData).catch((err) => setError(err.message)); }, []);
 
   if (error) return <div className="sr-error">{error}</div>;
-  if (!data) return <div className="dashboard-loading" aria-live="polite"><span className="sr-kicker">SYSTEM CHECK</span><strong>Checking provider health and routes…</strong><div className="loading-line" /></div>;
+  if (!data) return <div className="dashboard-loading" aria-live="polite"><span className="sr-kicker">CONTROL PLANE</span><strong>Loading routes and providers…</strong><div className="loading-line" /></div>;
 
   const working = data.providers.length > 0 && data.healthy_providers > 0 && data.active_routes > 0;
-  const setupHref = data.providers.length === 0 ? "/providers" : data.active_routes === 0 ? "/routes" : "/api-keys";
-  const setupLabel = data.providers.length === 0 ? "Connect a provider" : data.active_routes === 0 ? "Create a Route" : "Create an API key";
+  const actionHref = data.providers.length === 0 ? "/providers" : data.active_routes === 0 ? "/routes" : "/api-keys";
+  const actionLabel = data.providers.length === 0 ? "Add provider key" : data.active_routes === 0 ? "Create a Route" : "Create an API key";
 
   return (
     <div className="sr-stack dashboard-page">
       <section className="status-verdict" data-ready={working}>
         <div>
-          <p className="sr-kicker">LIVE STATUS</p>
-          <h1>{working ? "ROUTING READY." : "SETUP INCOMPLETE."}</h1>
-          <p>{working ? "At least one healthy provider and active Route are available for traffic." : "SwitchRoute needs a healthy provider and active Route before it can route requests."}</p>
+          <p className="sr-kicker">WORKSPACE</p>
+          <h1>{working ? "ROUTING READY." : "CONTROL PLANE."}</h1>
+          <p>{working ? "At least one healthy provider and active Route are available for traffic." : "Add provider keys, create Routes, and generate SwitchRoute keys directly from here. Nothing is required in advance."}</p>
         </div>
-        <div className="status-verdict-mark"><span className={`sr-status ${working ? "sr-status-success" : "sr-status-warning"}`} /><strong>{working ? "ONLINE" : "ACTION NEEDED"}</strong></div>
+        <div className="status-verdict-mark"><span className={`sr-status ${working ? "sr-status-success" : "sr-status-warning"}`} /><strong>{working ? "ONLINE" : "IDLE"}</strong></div>
       </section>
 
-      {!working && <div className="setup-callout"><span>Next required step</span><strong>{setupLabel}</strong><Link className="sr-button" href={setupHref}>Continue setup</Link></div>}
+      {!working && <div className="setup-callout"><span>Quick action</span><strong>{actionLabel}</strong><Link className="sr-button" href={actionHref}>{actionLabel}</Link></div>}
 
       <div className="metric-line">
         <div className="metric"><span>Providers healthy</span><strong>{data.healthy_providers}/{data.providers.length}</strong></div>
@@ -51,7 +51,7 @@ export function DashboardClient() {
         <section className="operational-section">
           <div className="section-bar"><div><span className="sr-kicker">UPSTREAMS</span><h2>Providers</h2></div><Link href="/providers">Manage →</Link></div>
           <div className="operational-list">
-            {data.providers.length ? data.providers.map((provider) => <div className="operational-row" key={provider.id}><span className="sr-row"><StatusDot status={provider.status} /><strong>{provider.display_name}</strong></span><span>{provider.provider_kind}</span></div>) : <div className="operational-empty"><span>No providers connected.</span><Link href="/providers">Connect one →</Link></div>}
+            {data.providers.length ? data.providers.map((provider) => <div className="operational-row" key={provider.id}><span className="sr-row"><StatusDot status={provider.status} /><strong>{provider.display_name}</strong></span><span>{provider.provider_kind}</span></div>) : <div className="operational-empty"><span>No providers connected.</span><Link href="/providers">Add one →</Link></div>}
           </div>
         </section>
 
