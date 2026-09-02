@@ -28,7 +28,24 @@ export function RoutesClient() {
       setLoading(false);
     }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([manageFetch<RouteRecord[]>("routes"), manageFetch<ProviderConnection[]>("providers")])
+      .then(([routeData, providerData]) => {
+        if (cancelled) return;
+        setRoutes(routeData);
+        setProviders(providerData);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Waterfalls could not be loaded.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
   async function remove(route: RouteRecord) { if (!window.confirm(`Delete ${route.name}? Revoke keys bound to it first.`)) return; try { await manageFetch(`routes/${route.id}`, { method: "DELETE" }); await load(); } catch (err) { setError(err instanceof Error ? err.message : "Waterfall could not be deleted."); } }
   const canCreate = providers.some((provider) => provider.metadata.models?.length);
 
