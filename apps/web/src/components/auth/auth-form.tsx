@@ -22,7 +22,7 @@ export function AuthForm({ authError }: { authError?: string }) {
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOtp({
         email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/confirm?next=/onboarding` },
+        options: { emailRedirectTo: `${window.location.origin}/auth/confirm?next=/dashboard` },
       });
       setMessage(error ? error.message : "Check your email for the secure sign-in link.");
     } catch (error) {
@@ -35,8 +35,8 @@ export function AuthForm({ authError }: { authError?: string }) {
   return (
     <div className="auth-card">
       <p className="sr-kicker">ACCESS SWITCHROUTE</p>
-      <h1>Sign in or start.</h1>
-      <p>New accounts continue directly into provider → Route → API key setup.</p>
+      <h1>Sign in.</h1>
+      <p>Open the control plane, add provider keys, and build your waterfalls.</p>
       <form className="sr-form-grid" onSubmit={emailSignIn}>
         <div className="sr-field">
           <Label htmlFor="email">Email address</Label>
