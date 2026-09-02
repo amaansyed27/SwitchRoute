@@ -1,0 +1,40 @@
+name: Sync Slice 1.7 OpenAPI
+
+on:
+  push:
+    branches:
+      - slice/1.7-frontend-rewrite
+    paths:
+      - services/gateway/src/switchroute/api/schemas.py
+      - services/gateway/src/switchroute/providers/**
+      - .github/workflows/sync-openapi-slice17.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: slice/1.7-frontend-rewrite
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install gateway
+        working-directory: services/gateway
+        run: pip install -e "."
+      - name: Export OpenAPI
+        run: python scripts/export_openapi.py
+      - name: Commit generated contract
+        run: |
+          if git diff --quiet -- packages/api-contract/openapi.json; then
+            echo "OpenAPI contract already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/api-contract/openapi.json
+          git commit -m "chore(api): sync provider OpenAPI contract"
+          git push origin HEAD:slice/1.7-frontend-rewrite
