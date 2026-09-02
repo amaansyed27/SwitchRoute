@@ -1,12 +1,28 @@
 from switchroute.errors import INVALID_REQUEST, SwitchRouteError
-from switchroute.providers.adapters import GeminiAdapter, GroqAdapter, OpenRouterAdapter
+from switchroute.providers.adapters import (
+    AnthropicAdapter,
+    GeminiAdapter,
+    GroqAdapter,
+    MistralAdapter,
+    OpenAIAdapter,
+    OpenRouterAdapter,
+    XAIAdapter,
+)
 from switchroute.providers.base import ProviderAdapter
 from switchroute.providers.test_adapter import TestAdapter
 
 
 class ProviderRegistry:
     def __init__(self, enable_test_provider: bool = False) -> None:
-        adapters: list[ProviderAdapter] = [GroqAdapter(), GeminiAdapter(), OpenRouterAdapter()]
+        adapters: list[ProviderAdapter] = [
+            OpenAIAdapter(),
+            AnthropicAdapter(),
+            GeminiAdapter(),
+            GroqAdapter(),
+            XAIAdapter(),
+            MistralAdapter(),
+            OpenRouterAdapter(),
+        ]
         if enable_test_provider:
             adapters.append(TestAdapter())
         self._adapters = {adapter.kind: adapter for adapter in adapters}

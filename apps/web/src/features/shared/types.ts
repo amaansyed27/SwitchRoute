@@ -1,3 +1,5 @@
+export type ProviderKind = "openai" | "anthropic" | "gemini" | "groq" | "xai" | "mistral" | "openrouter" | "test";
+
 export type ModelOption = {
   id: string;
   name: string;
@@ -7,7 +9,7 @@ export type ModelOption = {
 
 export type ProviderConnection = {
   id: string;
-  provider_kind: "groq" | "gemini" | "openrouter" | "test";
+  provider_kind: ProviderKind;
   display_name: string;
   status: "healthy" | "degraded" | "invalid" | "unknown";
   metadata: { models?: ModelOption[] };
