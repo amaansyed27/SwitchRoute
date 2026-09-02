@@ -24,7 +24,20 @@ export function DashboardClient() {
       setError(err instanceof Error ? err.message : "Overview could not be loaded.");
     }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+    manageFetch<Summary>("dashboard")
+      .then((result) => {
+        if (cancelled) return;
+        setData(result);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Overview could not be loaded.");
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   return <div>
     <PageHeader title="Overview" eyebrow="Workspace" description="Provider health, active waterfalls, and request activity at a glance." action={<div className="flex gap-2"><Link className={buttonClass({ variant: "secondary", size: "sm" })} href="/providers"><Icon name="plus" className="size-3.5"/>Provider</Link><Link className={buttonClass({ size: "sm" })} href="/routes"><Icon name="waterfall" className="size-3.5"/>New waterfall</Link></div>} />
