@@ -7,6 +7,13 @@ function originAllowed(request: NextRequest) {
   return !origin || origin === request.nextUrl.origin;
 }
 
+function gatewayBaseUrl() {
+  if (process.env.GATEWAY_URL) return process.env.GATEWAY_URL;
+  if (process.env.NEXT_PUBLIC_GATEWAY_URL) return process.env.NEXT_PUBLIC_GATEWAY_URL;
+  if (process.env.VERCEL_ENV === "production") return "https://switchroute-gateway.vercel.app";
+  return "http://localhost:8000";
+}
+
 async function forward(request: NextRequest, path: string[]) {
   if (!originAllowed(request)) {
     return NextResponse.json({ error: { message: "Cross-origin management request rejected.", code: "authentication_error" } }, { status: 403 });
@@ -22,7 +29,7 @@ async function forward(request: NextRequest, path: string[]) {
     return NextResponse.json({ error: { message: "Authentication required.", code: "authentication_error" } }, { status: 401 });
   }
 
-  const gateway = process.env.GATEWAY_URL ?? process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8000";
+  const gateway = gatewayBaseUrl();
   const target = new URL(`/manage/${path.join("/")}`, gateway);
   request.nextUrl.searchParams.forEach((value, key) => target.searchParams.set(key, value));
   const body = ["GET", "HEAD"].includes(request.method) ? undefined : await request.text();
@@ -35,7 +42,11 @@ async function forward(request: NextRequest, path: string[]) {
     });
     const content = upstream.status === 204 ? null : await upstream.text();
     return new NextResponse(content, { status: upstream.status, headers: content ? { "Content-Type": upstream.headers.get("content-type") ?? "application/json" } : undefined });
-  } catch {
+  } catch (error) {
+    console.error("SwitchRoute gateway request failed", {
+      gateway: target.origin,
+      message: error instanceof Error ? error.message : "Unknown gateway fetch failure",
+    });
     return NextResponse.json({ error: { message: "Gateway is unavailable.", code: "provider_unavailable" } }, { status: 503 });
   }
 }
