@@ -33,7 +33,23 @@ export function ProvidersClient() {
       setLoading(false);
     }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+    manageFetch<ProviderConnection[]>("providers")
+      .then((result) => {
+        if (cancelled) return;
+        setProviders(result);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Providers could not be loaded.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const catalog = useMemo(() => PROVIDER_CATALOG.filter((provider) => `${provider.name} ${provider.company} ${provider.description}`.toLowerCase().includes(query.toLowerCase())), [query]);
 
