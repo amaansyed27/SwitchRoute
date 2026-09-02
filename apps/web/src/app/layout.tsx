@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Orbitron, Space_Mono } from "next/font/google";
+import { Geist, JetBrains_Mono } from "next/font/google";
 import "@switchroute/design-tokens/tokens.css";
 import "./globals.css";
 import "./product.css";
@@ -8,20 +8,32 @@ import "./live-review.css";
 import "./landing-v2.css";
 import "./landing-v2-review.css";
 import "./landing-motion.css";
+import "./theme.css";
+import "./finesse.css";
 
-// Deployment marker: keeps Vercel's monorepo affected-project detection explicit for the web app.
-const display = Orbitron({
+const sans = Geist({
   subsets: ["latin"],
-  variable: "--font-dawnlight-display",
+  variable: "--font-switchroute-sans",
   display: "swap",
 });
 
-const mono = Space_Mono({
+const mono = JetBrains_Mono({
   subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-dawnlight-mono",
+  variable: "--font-switchroute-mono",
   display: "swap",
 });
+
+const themeBootstrap = `(() => {
+  try {
+    const saved = localStorage.getItem("switchroute-theme");
+    const choice = saved === "light" || saved === "dark" || saved === "system" ? saved : "system";
+    const resolved = choice === "system"
+      ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+      : choice;
+    document.documentElement.dataset.themeChoice = choice;
+    document.documentElement.dataset.theme = resolved;
+  } catch {}
+})();`;
 
 export const metadata: Metadata = {
   title: { default: "SwitchRoute", template: "%s · SwitchRoute" },
@@ -30,7 +42,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${display.variable} ${mono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${sans.variable} ${mono.variable}`}>
+      <head><script dangerouslySetInnerHTML={{ __html: themeBootstrap }} /></head>
       <body>{children}</body>
     </html>
   );
