@@ -1,28 +1,29 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { Button, Input, Label } from "@switchroute/ui";
+import { FormEvent, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge, Alert } from "@/components/ui/feedback";
+import { Field, Input } from "@/components/ui/form";
+import { Icon } from "@/components/ui/icon";
+import type { ModelOption, ProviderConnection, ProviderKind } from "@/features/shared/types";
 import { manageFetch } from "@/lib/gateway/manage";
-import type { ModelOption, ProviderConnection } from "@/features/shared/types";
+import { cn } from "@/lib/cn";
+import { PROVIDER_CATALOG } from "./catalog";
 
-type Kind = "groq" | "gemini" | "openrouter";
-const providers: Array<{ kind: Kind; name: string; note: string }> = [
-  { kind: "groq", name: "Groq", note: "Fast inference" },
-  { kind: "gemini", name: "Gemini", note: "Google AI Studio" },
-  { kind: "openrouter", name: "OpenRouter", note: "Broad model catalog" },
-];
+type ConnectableKind = Exclude<ProviderKind, "test">;
 
-export function ProviderConnectForm({ onConnected, onCancel }: { onConnected: (provider: ProviderConnection) => void; onCancel?: () => void }) {
-  const [kind, setKind] = useState<Kind>("groq");
+export function ProviderConnectForm({ initialKind = "openai", onConnected }: { initialKind?: ConnectableKind; onConnected: (provider: ProviderConnection) => void }) {
+  const [kind, setKind] = useState<ConnectableKind>(initialKind);
+  const selected = useMemo(() => PROVIDER_CATALOG.find((item) => item.kind === kind) ?? PROVIDER_CATALOG[0], [kind]);
   const [key, setKey] = useState("");
-  const [name, setName] = useState("Groq");
+  const [name, setName] = useState(selected.name);
   const [models, setModels] = useState<ModelOption[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function changeKind(next: Kind) {
-    const provider = providers.find((item) => item.kind === next);
-    setKind(next); setName(provider?.name ?? next); setModels(null); setError(null);
+  function changeKind(next: ConnectableKind) {
+    const provider = PROVIDER_CATALOG.find((item) => item.kind === next)!;
+    setKind(next); setName(provider.name); setModels(null); setError(null); setKey("");
   }
 
   async function test(event: FormEvent) {
@@ -44,24 +45,22 @@ export function ProviderConnectForm({ onConnected, onCancel }: { onConnected: (p
     finally { setBusy(false); }
   }
 
-  return (
-    <form className="provider-connect" onSubmit={test}>
-      <div className="provider-connect-head">
-        <div><p className="sr-kicker">NEW CONNECTION</p><h2>Connect a provider</h2><p>Choose the upstream, validate the credential, then save it. The key becomes write-only after this step.</p></div>
-        {onCancel && <Button type="button" className="sr-button-secondary" onClick={onCancel}>Close</Button>}
+  return <form onSubmit={test} className="space-y-6">
+    <div>
+      <p className="mb-2 text-xs font-medium text-[var(--muted-foreground)]">Provider</p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {PROVIDER_CATALOG.map((provider) => <button key={provider.kind} type="button" aria-pressed={kind === provider.kind} onClick={() => changeKind(provider.kind)} className={cn("rounded-xl border p-3 text-left transition", kind === provider.kind ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_7%,var(--surface))]" : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)]")}><span className="mb-2 grid size-8 place-items-center rounded-lg border border-[var(--border)] bg-[var(--surface-strong)] font-mono text-[11px] font-semibold">{provider.mark}</span><strong className="block text-sm">{provider.name}</strong><span className="mt-0.5 block text-[11px] text-[var(--muted-foreground)]">{provider.company}</span></button>)}
       </div>
+    </div>
 
-      <fieldset className="provider-picker"><legend>Provider</legend>{providers.map((provider) => <button key={provider.kind} type="button" data-selected={kind === provider.kind} onClick={() => changeKind(provider.kind)}><strong>{provider.name}</strong><span>{provider.note}</span></button>)}</fieldset>
+    <div className="grid gap-4">
+      <Field label="Connection name" htmlFor="provider-name"><Input id="provider-name" required value={name} onChange={(event) => setName(event.target.value)} /></Field>
+      <Field label="API key" htmlFor="provider-key" hint="The key is validated first, then encrypted. It is never returned to the browser after save."><Input id="provider-key" type="password" required autoComplete="off" value={key} onChange={(event) => { setKey(event.target.value); setModels(null); }} placeholder={`Paste ${selected.name} API key`} /></Field>
+    </div>
 
-      <div className="provider-fields">
-        <div className="sr-field"><Label htmlFor="provider-name">Connection name</Label><Input id="provider-name" required value={name} onChange={(event) => setName(event.target.value)} /></div>
-        <div className="sr-field"><Label htmlFor="provider-key">Provider API key</Label><Input id="provider-key" type="password" required autoComplete="off" value={key} onChange={(event) => { setKey(event.target.value); setModels(null); }} placeholder="Paste provider key" /><small>Validated before storage. Decrypted credentials are never returned to the browser.</small></div>
-      </div>
+    {error && <Alert>{error}</Alert>}
+    {models && <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/7 p-4"><div className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-300"><Icon name="check" className="size-4"/>Credential validated · {models.length} model{models.length === 1 ? "" : "s"}</div><div className="mt-3 flex flex-wrap gap-1.5">{models.slice(0, 8).map((model) => <Badge key={model.id}>{model.name}</Badge>)}{models.length > 8 && <Badge>+{models.length - 8}</Badge>}</div></div>}
 
-      {error && <div className="sr-error">{error}</div>}
-      {models && <div className="provider-validation"><div><span className="sr-status sr-status-success" /><strong>Connection healthy.</strong><span>{models.length} chat-capable model{models.length === 1 ? "" : "s"} discovered.</span></div><div className="provider-model-preview">{models.slice(0, 5).map((model) => <span key={model.id}>{model.name}</span>)}{models.length > 5 && <span>+{models.length - 5} more</span>}</div></div>}
-
-      <div className="provider-connect-actions"><Button type="submit" className="sr-button-secondary" disabled={busy || key.length < 3}>{busy ? "Testing…" : "Test connection"}</Button><Button type="button" disabled={busy || !models || !name.trim()} onClick={save}>Save provider</Button></div>
-    </form>
-  );
+    <div className="flex items-center justify-end gap-2 border-t border-[var(--border)] pt-4"><Button type="submit" variant="secondary" disabled={busy || key.length < 3}>{busy && !models ? "Testing…" : "Test credential"}</Button><Button type="button" disabled={busy || !models || !name.trim()} onClick={save}>{busy && models ? "Saving…" : "Save connection"}</Button></div>
+  </form>;
 }
