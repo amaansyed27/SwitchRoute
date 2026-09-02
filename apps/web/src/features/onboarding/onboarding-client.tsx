@@ -15,8 +15,13 @@ const presets: Record<Goal, { name: string; description: string; strategy: "prio
   fast: { name: "Fast", description: "Keep your fastest connected target at the top.", strategy: "priority" },
 };
 
+function publicGatewayBase() {
+  return process.env.NEXT_PUBLIC_GATEWAY_URL
+    ?? (process.env.NODE_ENV === "production" ? "https://switchroute-gateway.vercel.app/v1" : "http://localhost:8000/v1");
+}
+
 function snippets(key: string) {
-  const base = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "https://api.switchroute.dawnlightlabs.com/v1";
+  const base = publicGatewayBase();
   return {
     Python: `from openai import OpenAI\n\nclient = OpenAI(api_key="${key}", base_url="${base}/")\nresponse = client.chat.completions.create(model="auto", messages=[{"role":"user","content":"Hello"}])`,
     JavaScript: `import OpenAI from "openai";\n\nconst client = new OpenAI({ apiKey: "${key}", baseURL: "${base}" });\nconst response = await client.chat.completions.create({ model: "auto", messages: [{ role: "user", content: "Hello" }] });`,
@@ -69,9 +74,12 @@ export function OnboardingClient() {
   async function testConnection() {
     if (!key) return;
     setTestState("testing");
-    const base = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8000/v1";
     try {
-      const response = await fetch(`${base}/chat/completions`, { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: "auto", messages: [{ role: "user", content: "Reply with exactly: SwitchRoute connected" }], max_tokens: 20 }) });
+      const response = await fetch(`${publicGatewayBase()}/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "auto", messages: [{ role: "user", content: "Reply with exactly: SwitchRoute connected" }], max_tokens: 20 }),
+      });
       if (!response.ok) throw new Error("Request failed");
       await response.json();
       setTestState("success");
@@ -82,23 +90,48 @@ export function OnboardingClient() {
   if (!bootstrap) return <div className="dashboard-loading"><span className="sr-kicker">WORKSPACE SETUP</span><strong>Preparing your SwitchRoute workspace…</strong><div className="loading-line" /></div>;
   if (bootstrap.onboarding_complete && !key) return <section className="onboarding-complete"><p className="sr-kicker">SETUP COMPLETE</p><h1>Your routing layer is ready.</h1><p>Existing API-key secrets cannot be recovered. Create another key if you need a new value to copy.</p><Link className="sr-button" href="/dashboard">Open dashboard</Link></section>;
 
-  const headings = ["What will SwitchRoute handle?", "Use this Route?", "Generate your SwitchRoute key.", "Make one real request."];
-  const descriptions = ["Pick a useful default, then connect and validate your first provider.", "We built a simple starting Route from the provider and model you just validated.", "This live key is bound to the Route. The full secret will be visible once.", "Copy the key, drop it into standard OpenAI client code, then verify the route end to end."];
+  const headings = ["Connect your first provider", "Review your first Route", "Create your API key", "Test the Route"];
+  const descriptions = [
+    "Choose a starting preset, add one provider key, and validate it. You can change everything later.",
+    "SwitchRoute has enough information to create a useful first Route. Review it before saving.",
+    "Generate one live Route-bound key. The full secret is shown only once.",
+    "Run one real OpenAI-compatible request and confirm the Route is ready for your application.",
+  ];
 
   return (
     <div className="onboarding-grid">
       <aside className="onboarding-progress">
-        <p className="sr-kicker">FIRST REQUEST</p>
-        <h2>No documentation required.</h2>
-        {["Provider", "Route", "API key", "Test + ship"].map((label, index) => <div key={label} className={stage >= index + 1 ? "onboarding-step active" : "onboarding-step"}><span>{index + 1}</span>{label}</div>)}
+        <div>
+          <p className="sr-kicker">QUICK SETUP</p>
+          <h2>Four steps to your first routed request.</h2>
+        </div>
+        <div className="onboarding-steps">
+          {["Provider", "Route", "API key", "Test + ship"].map((label, index) => (
+            <div key={label} className={stage >= index + 1 ? "onboarding-step active" : "onboarding-step"}>
+              <span>{index + 1}</span>{label}
+            </div>
+          ))}
+        </div>
       </aside>
 
       <div className="onboarding-work">
-        <header className="onboarding-stage-head"><div><p className="sr-kicker">SETUP / {stage} OF 4</p><h1>{headings[stage - 1]}</h1><p>{descriptions[stage - 1]}</p></div><span className="onboarding-stage-index">0{stage}</span></header>
+        <header className="onboarding-stage-head">
+          <div><p className="sr-kicker">SETUP {stage} / 4</p><h1>{headings[stage - 1]}</h1><p>{descriptions[stage - 1]}</p></div>
+          <span className="onboarding-stage-index">0{stage}</span>
+        </header>
 
         {stage === 1 && <section className="onboarding-stage">
-          <div className="sr-stack">{(Object.keys(presets) as Goal[]).map((item) => <button className={`onboarding-choice ${goal === item ? "selected" : ""}`} key={item} aria-pressed={goal === item} onClick={() => setGoal(item)}><strong>{presets[item].name}</strong><span>{presets[item].description}</span></button>)}</div>
-          <div id="provider-connect" style={{ marginTop: 30 }}><ProviderConnectForm onConnected={setProvider} /></div>
+          <div className="onboarding-preset-block">
+            <div className="onboarding-block-head"><strong>Route preset</strong><span>Pick the closest starting point.</span></div>
+            <div className="onboarding-preset-grid">
+              {(Object.keys(presets) as Goal[]).map((item) => (
+                <button className={`onboarding-choice ${goal === item ? "selected" : ""}`} key={item} aria-pressed={goal === item} onClick={() => setGoal(item)}>
+                  <strong>{presets[item].name}</strong><span>{presets[item].description}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div id="provider-connect" className="onboarding-provider-block"><ProviderConnectForm onConnected={setProvider} /></div>
         </section>}
 
         {stage === 2 && <section className="onboarding-summary"><div className="summary-label"><span>Suggested Route</span><strong>{presets[goal].name}</strong></div><div className="summary-target"><span>01</span><div><strong>{provider?.display_name}</strong><small>{provider?.metadata.models?.[0]?.name ?? "Discovered model"}</small></div><span>{presets[goal].strategy === "free_first" ? "FREE FIRST" : "PRIORITY"}</span></div><div className="onboarding-action-row"><Button onClick={createRoute}>Create this Route</Button></div></section>}
