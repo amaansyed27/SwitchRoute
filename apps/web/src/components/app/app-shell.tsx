@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@switchroute/ui";
 import { Brand } from "@/components/brand";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { createClient } from "@/lib/supabase/client";
 
 const nav = [
@@ -62,7 +63,10 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
             <span className="sr-kicker">CONTROL PLANE</span>
             <span>{current?.label ?? "SwitchRoute"}</span>
           </div>
-          <span className="app-retention">Zero content retention</span>
+          <div className="app-topbar-actions">
+            <ThemeSwitcher />
+            <span className="app-retention">Zero content retention</span>
+          </div>
         </header>
         <main className="app-content">{children}</main>
       </div>
