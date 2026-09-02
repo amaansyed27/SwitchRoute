@@ -9,6 +9,7 @@ import "./landing-v2.css";
 import "./landing-v2-review.css";
 import "./landing-motion.css";
 
+// Deployment marker: keeps Vercel's monorepo affected-project detection explicit for the web app.
 const display = Orbitron({
   subsets: ["latin"],
   variable: "--font-dawnlight-display",
