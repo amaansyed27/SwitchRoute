@@ -1,6 +1,6 @@
 # Getting Started
 
-SwitchRoute gives you one OpenAI-compatible API for the model providers you already use. A typical setup takes four product actions: connect a provider, create a Route, create a route-bound SwitchRoute key, then point your existing OpenAI client at the SwitchRoute gateway.
+SwitchRoute gives you one OpenAI-compatible API for the model providers you already use. There is no required onboarding wizard: sign in and use the control plane directly.
 
 ## 1. Connect a provider
 
@@ -31,5 +31,3 @@ response = client.chat.completions.create(
 ```
 
 During local development, use `http://localhost:8000/v1` instead.
-
-The onboarding screen performs this entire path and includes a real test request, so a new user does not need to read documentation before verifying their setup.
