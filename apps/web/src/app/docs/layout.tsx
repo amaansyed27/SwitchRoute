@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Brand } from "@/components/brand";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { DocsNav } from "@/components/docs/docs-nav";
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
@@ -10,6 +11,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
           <Brand />
           <span className="docs-wordmark">Documentation</span>
           <nav className="docs-header-links" aria-label="Documentation utilities">
+            <ThemeSwitcher compact />
             <Link href="/">Home</Link>
             <Link href="/dashboard">Dashboard</Link>
             <Link className="docs-signin" href="/login">Sign in</Link>
