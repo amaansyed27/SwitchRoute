@@ -56,8 +56,9 @@ def test_api_format_is_flexible_but_registry_is_authoritative() -> None:
 
 def test_database_constraint_uses_same_safe_format_not_provider_enum() -> None:
     migrations = Path(__file__).resolve().parents[3] / "supabase" / "migrations"
-    migration = migrations / "20260903120000_provider_kind_catalog.sql"
-    sql = migration.read_text(encoding="utf-8")
+    matches = list(migrations.glob("*_provider_kind_catalog.sql"))
+    assert len(matches) == 1
+    sql = matches[0].read_text(encoding="utf-8")
     assert "provider_connections_provider_kind_check" in sql
     assert "provider_connections_provider_kind_format_check" in sql
     assert "^[a-z0-9][a-z0-9_-]{0,63}$" in sql
