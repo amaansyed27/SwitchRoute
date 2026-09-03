@@ -1,7 +1,7 @@
 import { cn } from "@/lib/cn";
 
 export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <section className={cn("rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,.04)]", className)}>{children}</section>;
+  return <section className={cn("sr-motion-card rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,.04)]", className)}>{children}</section>;
 }
 
 export function PageHeader({ title, description, action, eyebrow }: { title: string; description?: string; action?: React.ReactNode; eyebrow?: string }) {
@@ -20,5 +20,5 @@ export function SectionHeader({ title, description, action }: { title: string; d
 }
 
 export function Stat({ label, value, detail }: { label: string; value: React.ReactNode; detail?: string }) {
-  return <Card className="p-4"><p className="text-xs font-medium text-[var(--muted-foreground)]">{label}</p><div className="mt-2 text-2xl font-semibold tracking-[-.04em] text-[var(--foreground)]">{value}</div>{detail && <p className="mt-1 text-xs text-[var(--muted-foreground)]">{detail}</p>}</Card>;
+  return <Card className="group p-4"><p className="text-xs font-medium text-[var(--muted-foreground)]">{label}</p><div className="mt-2 text-2xl font-semibold tracking-[-.04em] text-[var(--foreground)] transition-transform duration-200 group-hover:translate-x-0.5">{value}</div>{detail && <p className="mt-1 text-xs text-[var(--muted-foreground)]">{detail}</p>}</Card>;
 }
