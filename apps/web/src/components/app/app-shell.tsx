@@ -33,7 +33,7 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
       <nav className="flex-1 space-y-1 px-2 py-3" aria-label="Product navigation">
         {nav.map((item) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-          return <Link key={item.href} href={item.href} className={cn("flex h-9 items-center gap-3 rounded-lg px-3 text-sm font-medium transition", active ? "bg-[var(--nav-active)] text-[var(--foreground)]" : "text-[var(--muted-foreground)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]")}><Icon name={item.icon} className="size-4"/><span>{item.label}</span></Link>;
+          return <Link key={item.href} href={item.href} data-active={active} className={cn("sr-nav-item group flex h-9 items-center gap-3 rounded-lg px-3 text-sm font-medium", active ? "bg-[var(--nav-active)] text-[var(--foreground)]" : "text-[var(--muted-foreground)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]")}><Icon name={item.icon} className="size-4"/><span className="transition-transform duration-150 group-hover:translate-x-0.5">{item.label}</span></Link>;
         })}
       </nav>
       <div className="border-t border-[var(--border)] p-3">
@@ -43,14 +43,14 @@ export function AppShell({ children, email }: { children: React.ReactNode; email
     </aside>
 
     <div className="min-w-0">
-      <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_92%,transparent)] px-4 backdrop-blur-xl lg:px-6">
+      <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_92%,transparent)] px-4 backdrop-blur-xl transition-[background-color,border-color] duration-200 lg:px-6">
         <div className="lg:hidden"><Brand href="/dashboard" /></div>
         <div className="hidden text-xs text-[var(--muted-foreground)] lg:block">Control plane</div>
-        <div className="flex items-center gap-2"><span className="hidden rounded-md bg-[var(--surface-muted)] px-2 py-1 font-mono text-[10px] text-[var(--muted-foreground)] sm:inline">zero content retention</span><div className="lg:hidden"><ThemeSwitcher compact/></div></div>
+        <div className="flex items-center gap-2"><span className="hidden rounded-md bg-[var(--surface-muted)] px-2 py-1 font-mono text-[10px] text-[var(--muted-foreground)] transition hover:bg-[var(--surface-hover)] sm:inline">zero content retention</span><div className="lg:hidden"><ThemeSwitcher compact/></div></div>
       </header>
       <main className="mx-auto w-full max-w-[1380px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">{children}</main>
       <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-[var(--border)] bg-[var(--sidebar)] p-1 lg:hidden" aria-label="Mobile navigation">
-        {nav.map((item) => { const active = pathname === item.href || pathname.startsWith(`${item.href}/`); return <Link key={item.href} href={item.href} className={cn("flex min-w-0 flex-col items-center gap-1 rounded-md px-1 py-2 text-[10px]", active ? "text-[var(--foreground)]" : "text-[var(--muted-foreground)]")}><Icon name={item.icon} className="size-4"/><span className="truncate">{item.label}</span></Link>; })}
+        {nav.map((item) => { const active = pathname === item.href || pathname.startsWith(`${item.href}/`); return <Link key={item.href} href={item.href} data-active={active} className={cn("sr-nav-item flex min-w-0 flex-col items-center gap-1 rounded-md px-1 py-2 text-[10px]", active ? "bg-[var(--nav-active)] text-[var(--foreground)]" : "text-[var(--muted-foreground)]")}><Icon name={item.icon} className="size-4"/><span className="truncate">{item.label}</span></Link>; })}
       </nav>
     </div>
   </div>;
