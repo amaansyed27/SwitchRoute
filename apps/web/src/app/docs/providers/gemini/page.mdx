@@ -1,0 +1,22 @@
+# Google Gemini
+
+## Credential
+Get a Gemini Developer API key from **Google AI Studio → API keys**. The key is validated server-side, encrypted, and never returned after save.
+
+## Validation
+SwitchRoute calls `GET https://generativelanguage.googleapis.com/v1beta/models` with the API key.
+
+## Model discovery
+Only models advertising `generateContent` are exposed. Provider-published input/output token limits are normalized when present.
+
+## Free usage
+Gemini can be free-capable depending on the model, account, and current Google limits; SwitchRoute does not guarantee availability.
+
+## Quota and rate metadata
+Runtime rate-limit/provider errors are normalized. Proactive Google quota consumption is not used for routing in Slice 1.8.
+
+## Known limitations
+Pricing and capability metadata not present in discovery remain `unknown`.
+
+## Disconnect
+Use **Providers → Disconnect** after removing this connection from all Routes.

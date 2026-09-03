@@ -1,0 +1,22 @@
+# Fireworks AI
+
+## Credential
+Get a key from **Fireworks AI Account → API Keys**. SwitchRoute validates and encrypts it server-side.
+
+## Validation
+SwitchRoute authenticates Fireworks serverless model discovery at `GET https://api.fireworks.ai/v1/accounts/fireworks/models` using the serverless filter.
+
+## Model discovery
+Serverless chat-capable models are normalized. Invocation uses LiteLLM's Fireworks mapping and Fireworks' inference API.
+
+## Free usage
+Free availability is reported as unknown.
+
+## Quota and rate metadata
+Runtime failures are normalized; proactive quota/balance state is not stored.
+
+## Known limitations
+This connection type claims serverless models only; dedicated deployment configuration is outside Slice 1.8.
+
+## Disconnect
+Use **Providers → Disconnect** after removing this connection from all Routes.

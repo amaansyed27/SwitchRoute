@@ -22,7 +22,7 @@ class Repository:
         return self.context if key_hash == self.expected_hash else None
 
     async def provider_secret(self, workspace_id, provider_id):
-        return "test", "encrypted", "test-v1"
+        return "test", "encrypted", "test-v1", {}
 
     async def mark_key_used(self, key_id):
         self.used = True

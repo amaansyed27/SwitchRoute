@@ -2,13 +2,30 @@
 
 ## Slice 1 — Cloud Core
 
-Cloud providers, Routes, route-bound virtual keys, OpenAI-compatible chat streaming, activity metadata, onboarding, docs and core security model.
+Supabase-backed identity/persistence, encrypted provider credentials, Routes, route-bound virtual keys, OpenAI-compatible chat streaming, sanitized activity metadata, documentation, and the core security model.
 
-## Later slices
+### Slice 1.8 — Provider Foundation + Cloud Provider Expansion
 
-- Live quota/routing state with Redis and advanced quota-aware strategies.
-- Cheapest/Fastest/Balanced routing.
-- SwitchRoute Edge for Ollama, LM Studio, vLLM, FreeToken and custom/local endpoints.
-- Expanded modalities, teams/enterprise controls and billing.
+- Canonical backend provider catalog exposed to the management UI.
+- Flexible safe-format provider persistence instead of a provider-ID database enum/check list.
+- 17 hosted provider connection types across direct providers, inference platforms, gateways, and custom public OpenAI-compatible endpoints.
+- Richer evidence-based model metadata with provenance.
+- SSRF-hardened custom hosted endpoint support.
+- Provider consistency, mocked discovery/invocation, persistence, streaming/fallback, RLS, and credential-security coverage.
 
-Later-slice items are architectural context only and are not implemented on the Slice 1 branch.
+## Slice 2 — Routing intelligence
+
+Planned, not implemented by Slice 1.8:
+
+- Redis-backed live routing state.
+- Quota-aware strategy.
+- Cheapest, Fastest, and Balanced strategies.
+- Circuit breakers, concurrency reservations, and advanced budgets.
+
+## Slice 3 — SwitchRoute Edge
+
+Planned first-class local/provider runtime support for at least Ollama, LM Studio, vLLM, llama.cpp, SGLang, LocalAI, FreeToken, and custom local OpenAI-compatible endpoints. Hugging Face TGI and MLX-LM remain candidates.
+
+## Slice 4 — Release surface
+
+Packaging/release work such as npm/PyPI SDK distribution and final release hardening remains later work.

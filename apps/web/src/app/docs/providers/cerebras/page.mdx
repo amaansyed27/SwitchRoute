@@ -1,0 +1,22 @@
+# Cerebras
+
+## Credential
+Get an API key from **Cerebras Cloud → API Keys**. SwitchRoute validates it and persists only encrypted credential material.
+
+## Validation
+SwitchRoute authenticates `GET https://api.cerebras.ai/v1/models`.
+
+## Model discovery
+Available model IDs are enriched from Cerebras' public model metadata endpoint for context, pricing, limits, and capabilities when present. Public metadata never grants access by itself.
+
+## Free usage
+Cerebras can be free-capable depending on the active account plan.
+
+## Quota and rate metadata
+Runtime failures are normalized; proactive quota state is not used for routing yet.
+
+## Known limitations
+Only IDs returned to the authenticated credential are offered as Route targets.
+
+## Disconnect
+Use **Providers → Disconnect** after removing this connection from all Routes.

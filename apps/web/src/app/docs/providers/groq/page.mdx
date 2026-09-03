@@ -1,0 +1,22 @@
+# Groq
+
+## Credential
+Get a key from **GroqCloud Console → API Keys**. SwitchRoute validates and encrypts the key server-side.
+
+## Validation
+SwitchRoute calls `GET https://api.groq.com/openai/v1/models` with bearer authentication.
+
+## Model discovery
+Active chat models are normalized and obvious non-chat models such as Whisper are filtered.
+
+## Free usage
+Groq is marked `free-capable`, not guaranteed free; actual account/model limits remain provider-controlled.
+
+## Quota and rate metadata
+Runtime rate-limit/auth/provider failures are normalized. Advanced quota-aware routing is deferred to Slice 2.
+
+## Known limitations
+Provider model discovery does not expose every pricing/capability field SwitchRoute may need later.
+
+## Disconnect
+Use **Providers → Disconnect** after removing this connection from all Routes.

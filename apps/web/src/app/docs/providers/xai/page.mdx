@@ -1,0 +1,22 @@
+# xAI
+
+## Credential
+Get an API key from **xAI Console → API Keys**. SwitchRoute stores it encrypted in the private credential path.
+
+## Validation
+SwitchRoute calls `GET https://api.x.ai/v1/language-models` with bearer authentication.
+
+## Model discovery
+Language models with text output are normalized. Unknown pricing/capability fields remain unknown.
+
+## Free usage
+Free availability is reported as unknown.
+
+## Quota and rate metadata
+Runtime auth, rate-limit, timeout, and provider failures are normalized; proactive quota metadata is not stored.
+
+## Known limitations
+Discovery may not expose complete pricing, context, or capability metadata.
+
+## Disconnect
+Use **Providers → Disconnect** after removing this connection from all Routes.

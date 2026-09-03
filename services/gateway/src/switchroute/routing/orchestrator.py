@@ -22,11 +22,18 @@ class RouteOrchestrator:
     def __init__(self, services: Services) -> None:
         self.services = services
 
-    async def _credential(self, context: VirtualKeyContext, candidate: Candidate) -> str:
-        _, ciphertext, key_id = await self.services.repository.provider_secret(
+    async def _credential(
+        self, context: VirtualKeyContext, candidate: Candidate
+    ) -> tuple[str, dict[str, Any] | None]:
+        kind, ciphertext, key_id, metadata = await self.services.repository.provider_secret(
             context.workspace_id, candidate.provider_connection_id
         )
-        return self.services.secrets.decrypt(ciphertext, key_id)
+        if kind != candidate.provider_kind:
+            raise SwitchRouteError(
+                "configuration_error", "Route provider metadata is inconsistent.", 500
+            )
+        connection = metadata.get("connection") if isinstance(metadata, dict) else None
+        return self.services.secrets.decrypt(ciphertext, key_id), connection
 
     async def _record(
         self,
@@ -108,14 +115,24 @@ class RouteOrchestrator:
 
         for candidate in candidates:
             try:
-                credential = await self._credential(context, candidate)
+                credential, connection = await self._credential(context, candidate)
                 response = await self.services.invoker.complete(
-                    candidate.provider_kind, candidate.model_id, credential, payload
+                    candidate.provider_kind,
+                    candidate.model_id,
+                    credential,
+                    payload,
+                    connection,
                 )
                 data = object_dict(response)
                 data["model"] = "auto"
                 await self._record(
-                    context, request_id, candidate, started, "success", fallback_count, usage_from(data)
+                    context,
+                    request_id,
+                    candidate,
+                    started,
+                    "success",
+                    fallback_count,
+                    usage_from(data),
                 )
                 return data
             except SwitchRouteError as exc:
@@ -124,7 +141,9 @@ class RouteOrchestrator:
                 last_error = classify_provider_error(exc)
             fallback_count += 1
 
-        error = last_error or SwitchRouteError(ROUTE_UNAVAILABLE, "No Route target is available.", 503)
+        error = last_error or SwitchRouteError(
+            ROUTE_UNAVAILABLE, "No Route target is available.", 503
+        )
         await self._record(
             context,
             request_id,
@@ -134,9 +153,13 @@ class RouteOrchestrator:
             max(0, fallback_count - 1),
             error_category=error.code,
         )
-        raise SwitchRouteError(ROUTE_UNAVAILABLE, "No Route target could start the request.", 503)
+        raise SwitchRouteError(
+            ROUTE_UNAVAILABLE, "No Route target could start the request.", 503
+        )
 
-    async def stream(self, context: VirtualKeyContext, payload: dict[str, Any]) -> AsyncIterator[bytes]:
+    async def stream(
+        self, context: VirtualKeyContext, payload: dict[str, Any]
+    ) -> AsyncIterator[bytes]:
         started = time.perf_counter()
         request_id = uuid4()
         candidates = order_candidates(context.candidates, context.strategy)
@@ -149,9 +172,13 @@ class RouteOrchestrator:
             input_tokens: int | None = None
             output_tokens: int | None = None
             try:
-                credential = await self._credential(context, candidate)
+                credential, connection = await self._credential(context, candidate)
                 iterator = self.services.invoker.stream(
-                    candidate.provider_kind, candidate.model_id, credential, payload
+                    candidate.provider_kind,
+                    candidate.model_id,
+                    credential,
+                    payload,
+                    connection,
                 ).__aiter__()
                 while True:
                     try:
@@ -187,7 +214,9 @@ class RouteOrchestrator:
                 yield event
             return
 
-        error = last_error or SwitchRouteError(ROUTE_UNAVAILABLE, "No Route target is available.", 503)
+        error = last_error or SwitchRouteError(
+            ROUTE_UNAVAILABLE, "No Route target is available.", 503
+        )
         await self._record(
             context,
             request_id,

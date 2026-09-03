@@ -4,7 +4,19 @@
 
 SwitchRoute is a Dawnlight Labs project that connects the AI providers a developer already has access to, turns them into reusable Routes, and exposes one OpenAI-compatible API key.
 
-Slice 1 is the Cloud Core: Supabase Auth/Postgres, a Next.js product UI, a FastAPI/LiteLLM gateway, encrypted provider credentials, route-bound virtual keys, provider fallback, zero prompt retention, activity metadata, and documentation.
+The Cloud Core includes Supabase Auth/Postgres, a Next.js product UI, a FastAPI/LiteLLM gateway, encrypted provider credentials, route-bound virtual keys, provider fallback, zero prompt retention, activity metadata, and documentation.
+
+## Hosted provider foundation
+
+Slice 1.8 expands the hosted provider layer to 17 production connection types backed by one gateway-owned provider catalog:
+
+- **Direct:** OpenAI, Anthropic, Google Gemini, xAI, Mistral AI, DeepSeek, Cohere.
+- **Inference:** Groq, Cerebras, NVIDIA NIM, SambaNova, Together AI, Fireworks AI, DeepInfra.
+- **Gateways:** OpenRouter, Hugging Face Inference Providers, and custom OpenAI-compatible public HTTPS endpoints.
+
+The web app consumes `GET /manage/provider-catalog`; provider IDs are not independently enumerated across frontend, API schema, and Postgres. Provider model discovery normalizes only metadata actually supplied by providers, with explicit provenance and unknown values when evidence is absent.
+
+Custom hosted endpoints are SSRF-hardened and cannot target localhost or private/local networks. Those belong to SwitchRoute Edge in a later slice.
 
 ## Product principles
 
@@ -14,11 +26,12 @@ Slice 1 is the Cloud Core: Supabase Auth/Postgres, a Next.js product UI, a FastA
 - A Route selects exactly one provider/model for a request; it is not an agent chain.
 - UI controls in the product must correspond to real behavior.
 - Source files stay focused and modular; CI warns on oversized source files.
+- Unknown provider metadata remains unknown; SwitchRoute does not invent quality scores.
 
 ## Repository
 
 ```text
-apps/web/              Next.js product, landing page, auth, onboarding and docs
+apps/web/              Next.js product, landing page, auth and docs
 services/gateway/      FastAPI OpenAI-compatible gateway and management API
 packages/ui/           Dawnlight UI primitives shared by the web app
 packages/design-tokens/Design tokens
@@ -27,8 +40,6 @@ supabase/              Migration-managed Postgres schema and RLS tests
 docs/                  Architecture, security, decisions and development guides
 scripts/               Repository and contract checks
 ```
-
-Directories are added only when they serve Slice 1 or establish an immediate extension boundary.
 
 ## Local development
 
@@ -49,8 +60,6 @@ See `docs/development/local-windows.md` for the full PowerShell workflow and the
 - `apps/web` → `switchroute.dawnlightlabs.com`
 - `services/gateway` → `api.switchroute.dawnlightlabs.com`
 
-Production domain changes are intentionally not performed by Slice 1.
-
 ## License
 
-No software license has been selected. This is an explicit product/legal decision still to be made; no `LICENSE` file is added by Slice 1.
+No software license has been selected. This is an explicit product/legal decision; no `LICENSE` file is added by this slice.

@@ -66,7 +66,7 @@ class PostgresRepository:
 
     async def provider_secret(
         self, workspace_id: UUID, provider_id: UUID
-    ) -> tuple[str, str, str]:
+    ) -> tuple[str, str, str, dict[str, Any]]:
         return await provider_store.provider_secret(
             self._require_pool(), workspace_id, provider_id
         )

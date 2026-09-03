@@ -1,23 +1,56 @@
-import type { ProviderKind } from "@/features/shared/types";
+import type { ProviderCatalogEntry, ProviderCategory } from "@/features/shared/types";
 
-export type ProviderMeta = {
-  kind: Exclude<ProviderKind, "test">;
-  name: string;
-  company: string;
-  description: string;
-  mark: string;
-};
-
-export const PROVIDER_CATALOG: ProviderMeta[] = [
-  { kind: "openai", name: "OpenAI", company: "OpenAI", description: "GPT and reasoning models through the direct API.", mark: "OA" },
-  { kind: "anthropic", name: "Anthropic", company: "Anthropic", description: "Claude models through the direct Anthropic API.", mark: "AN" },
-  { kind: "gemini", name: "Gemini", company: "Google", description: "Gemini models from Google AI Studio.", mark: "G" },
-  { kind: "groq", name: "Groq", company: "Groq", description: "Low-latency hosted inference and free-capable models.", mark: "GQ" },
-  { kind: "xai", name: "xAI", company: "xAI", description: "Grok language models through the direct xAI API.", mark: "x" },
-  { kind: "mistral", name: "Mistral", company: "Mistral AI", description: "Mistral and Codestral-family models through La Plateforme.", mark: "M" },
-  { kind: "openrouter", name: "OpenRouter", company: "OpenRouter", description: "A broad catalog across many model vendors, including free variants.", mark: "OR" },
+export const PROVIDER_CATEGORIES: { id: ProviderCategory; label: string; description: string }[] = [
+  { id: "direct", label: "Direct", description: "Model vendors and first-party APIs." },
+  { id: "inference", label: "Inference", description: "Hosted inference platforms for open and partner models." },
+  { id: "gateway", label: "Gateways", description: "Multi-provider routers and compatible hosted endpoints." },
 ];
 
-export function providerMeta(kind: string) {
-  return PROVIDER_CATALOG.find((provider) => provider.kind === kind);
+export const PROVIDER_CATALOG: { kind: ProviderCategory; name: string; mark: string }[] =
+  PROVIDER_CATEGORIES.map((category) => ({
+    kind: category.id,
+    name: category.label,
+    mark: category.id === "direct" ? "D" : category.id === "inference" ? "I" : "G",
+  }));
+
+type DisplayProviderMeta = ProviderCatalogEntry & { kind: string; name: string };
+
+function decorate(provider: ProviderCatalogEntry): DisplayProviderMeta {
+  return { ...provider, kind: provider.id, name: provider.display_name };
+}
+
+function humanizeProviderKind(kind: string): DisplayProviderMeta {
+  const displayName = kind
+    .split(/[_-]/g)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+  return {
+    id: kind,
+    kind,
+    name: displayName || kind,
+    display_name: displayName || kind,
+    company: "",
+    category: "gateway",
+    auth_type: "api_key",
+    litellm_mapping: "",
+    supports_model_discovery: false,
+    free_usage_may_exist: null,
+    documentation_slug: kind.replace(/_/g, "-"),
+    description: "",
+    mark: kind.slice(0, 2).toUpperCase(),
+    requires_base_url: false,
+    supports_manual_model: false,
+  };
+}
+
+export function providerMeta(catalog: ProviderCatalogEntry[], kind: string): DisplayProviderMeta | undefined;
+export function providerMeta(kind: string): DisplayProviderMeta;
+export function providerMeta(
+  catalogOrKind: ProviderCatalogEntry[] | string,
+  maybeKind?: string,
+): DisplayProviderMeta | undefined {
+  if (typeof catalogOrKind === "string") return humanizeProviderKind(catalogOrKind);
+  const provider = catalogOrKind.find((entry) => entry.id === maybeKind);
+  return provider ? decorate(provider) : undefined;
 }

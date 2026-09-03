@@ -1,0 +1,22 @@
+# OpenRouter
+
+## Credential
+Get a key from **OpenRouter → Keys**. SwitchRoute validates it and stores only encrypted credential material.
+
+## Validation
+SwitchRoute calls `GET https://openrouter.ai/api/v1/key`, then `GET https://openrouter.ai/api/v1/models`.
+
+## Model discovery
+Model IDs, context, supported parameters, and token pricing are normalized when returned. Explicit zero-cost or `:free` variants are marked free.
+
+## Free usage
+OpenRouter may expose free model variants, subject to current provider limits and availability.
+
+## Quota and rate metadata
+Runtime failures and model/key metadata are observed; advanced quota-aware routing remains Slice 2.
+
+## Known limitations
+A listed model does not guarantee identical upstream availability at every moment.
+
+## Disconnect
+Use **Providers → Disconnect** after removing this connection from all Routes.
