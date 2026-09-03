@@ -1,67 +1,53 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Badge, StatusDot } from "@switchroute/ui";
+import { useCallback, useEffect, useState } from "react";
+import { buttonClass } from "@/components/ui/button";
+import { Badge, EmptyState, LoadingBlock, Retry, StatusDot } from "@/components/ui/feedback";
+import { Icon } from "@/components/ui/icon";
+import { Card, PageHeader, SectionHeader, Stat } from "@/components/ui/surface";
 import { manageFetch } from "@/lib/gateway/manage";
 import type { ActivityRecord, ProviderConnection } from "@/features/shared/types";
+import { providerMeta } from "@/features/providers/catalog";
 
-type Summary = {
-  providers: ProviderConnection[];
-  healthy_providers: number;
-  active_routes: number;
-  requests_24h: number;
-  cost_24h_microusd: number;
-  recent_activity: ActivityRecord[];
-};
+type Summary = { providers: ProviderConnection[]; healthy_providers: number; active_routes: number; requests_24h: number; cost_24h_microusd: number; recent_activity: ActivityRecord[]; };
 
 export function DashboardClient() {
   const [data, setData] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { manageFetch<Summary>("dashboard").then(setData).catch((err) => setError(err.message)); }, []);
+  const load = useCallback(async () => {
+    try {
+      const result = await manageFetch<Summary>("dashboard");
+      setData(result);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Overview could not be loaded.");
+    }
+  }, []);
+  useEffect(() => {
+    let cancelled = false;
+    manageFetch<Summary>("dashboard")
+      .then((result) => {
+        if (cancelled) return;
+        setData(result);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Overview could not be loaded.");
+      });
+    return () => { cancelled = true; };
+  }, []);
 
-  if (error) return <div className="sr-error">{error}</div>;
-  if (!data) return <div className="dashboard-loading" aria-live="polite"><span className="sr-kicker">CONTROL PLANE</span><strong>Loading routes and providers…</strong><div className="loading-line" /></div>;
-
-  const working = data.providers.length > 0 && data.healthy_providers > 0 && data.active_routes > 0;
-  const actionHref = data.providers.length === 0 ? "/providers" : data.active_routes === 0 ? "/routes" : "/api-keys";
-  const actionLabel = data.providers.length === 0 ? "Add provider key" : data.active_routes === 0 ? "Create a Route" : "Create an API key";
-
-  return (
-    <div className="sr-stack dashboard-page">
-      <section className="status-verdict" data-ready={working}>
-        <div>
-          <p className="sr-kicker">WORKSPACE</p>
-          <h1>{working ? "ROUTING READY." : "CONTROL PLANE."}</h1>
-          <p>{working ? "At least one healthy provider and active Route are available for traffic." : "Add provider keys, create Routes, and generate SwitchRoute keys directly from here. Nothing is required in advance."}</p>
-        </div>
-        <div className="status-verdict-mark"><span className={`sr-status ${working ? "sr-status-success" : "sr-status-warning"}`} /><strong>{working ? "ONLINE" : "IDLE"}</strong></div>
-      </section>
-
-      {!working && <div className="setup-callout"><span>Quick action</span><strong>{actionLabel}</strong><Link className="sr-button" href={actionHref}>{actionLabel}</Link></div>}
-
-      <div className="metric-line">
-        <div className="metric"><span>Providers healthy</span><strong>{data.healthy_providers}/{data.providers.length}</strong></div>
-        <div className="metric"><span>Active Routes</span><strong>{data.active_routes}</strong></div>
-        <div className="metric"><span>Requests · 24h</span><strong>{data.requests_24h}</strong></div>
-        <div className="metric"><span>Provider spend · 24h</span><strong>${(data.cost_24h_microusd / 1_000_000).toFixed(3)}</strong></div>
+  return <div>
+    <PageHeader title="Overview" eyebrow="Workspace" description="Provider health, active waterfalls, and request activity at a glance." action={<div className="flex gap-2"><Link className={buttonClass({ variant: "secondary", size: "sm" })} href="/providers"><Icon name="plus" className="size-3.5"/>Provider</Link><Link className={buttonClass({ size: "sm" })} href="/routes"><Icon name="waterfall" className="size-3.5"/>New waterfall</Link></div>} />
+    {error && <Retry message={error} onRetry={() => void load()} />}
+    {!data && !error ? <LoadingBlock label="Loading overview"/> : data && <>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Stat label="Healthy providers" value={`${data.healthy_providers}/${data.providers.length}`} detail="validated upstream connections"/><Stat label="Active waterfalls" value={data.active_routes} detail="available for routing"/><Stat label="Requests · 24h" value={data.requests_24h} detail="metadata-only request count"/><Stat label="Provider spend · 24h" value={`$${(data.cost_24h_microusd / 1_000_000).toFixed(3)}`} detail="reported provider cost"/></div>
+      <div className="mt-5 grid gap-5 xl:grid-cols-2">
+        <Card className="overflow-hidden"><SectionHeader title="Providers" description="Current upstream health." action={<Link href="/providers" className="text-xs font-medium text-[var(--accent)]">Manage</Link>}/><div className="border-t border-[var(--border)]">{!data.providers.length ? <div className="p-4"><EmptyState title="No providers connected" description="Add a provider API key to start building waterfalls." action={<Link className={buttonClass({ size: "sm" })} href="/providers">Add provider</Link>}/></div> : <div className="divide-y divide-[var(--border)]">{data.providers.slice(0,6).map((provider) => <div key={provider.id} className="flex items-center justify-between gap-3 px-4 py-3"><div className="flex min-w-0 items-center gap-3"><span className="grid size-8 place-items-center rounded-lg border border-[var(--border)] bg-[var(--surface-strong)] font-mono text-[10px] font-semibold">{providerMeta(provider.provider_kind)?.mark ?? "AI"}</span><div className="min-w-0"><strong className="block truncate text-sm">{provider.display_name}</strong><span className="text-xs text-[var(--muted-foreground)]">{providerMeta(provider.provider_kind)?.name ?? provider.provider_kind}</span></div></div><div className="flex items-center gap-2"><StatusDot status={provider.status}/><span className="text-xs capitalize text-[var(--muted-foreground)]">{provider.status}</span></div></div>)}</div>}</div></Card>
+        <Card className="overflow-hidden"><SectionHeader title="Recent activity" description="No prompts or completions are stored." action={<Link href="/activity" className="text-xs font-medium text-[var(--accent)]">View all</Link>}/><div className="border-t border-[var(--border)]">{!data.recent_activity.length ? <div className="p-4"><EmptyState title="No requests yet" description="Requests will appear here after a SwitchRoute key starts sending traffic." /></div> : <div className="divide-y divide-[var(--border)]">{data.recent_activity.slice(0,7).map((item) => <div key={item.request_id} className="grid grid-cols-[1fr_auto] gap-4 px-4 py-3"><div className="min-w-0"><div className="flex items-center gap-2"><strong className="truncate text-sm">{item.route_name}</strong><Badge tone={item.status === "success" ? "success" : "danger"}>{item.status}</Badge></div><p className="mt-1 truncate font-mono text-[11px] text-[var(--muted-foreground)]">{item.provider_kind ?? "—"} / {item.model_id ?? "—"}</p></div><div className="text-right"><strong className="block text-xs">{item.latency_ms} ms</strong><span className="text-[11px] text-[var(--muted-foreground)]">{item.fallback_count ? `${item.fallback_count} fallback` : "direct"}</span></div></div>)}</div>}</div></Card>
       </div>
-
-      <div className="dashboard-columns">
-        <section className="operational-section">
-          <div className="section-bar"><div><span className="sr-kicker">UPSTREAMS</span><h2>Providers</h2></div><Link href="/providers">Manage →</Link></div>
-          <div className="operational-list">
-            {data.providers.length ? data.providers.map((provider) => <div className="operational-row" key={provider.id}><span className="sr-row"><StatusDot status={provider.status} /><strong>{provider.display_name}</strong></span><span>{provider.provider_kind}</span></div>) : <div className="operational-empty"><span>No providers connected.</span><Link href="/providers">Add one →</Link></div>}
-          </div>
-        </section>
-
-        <section className="operational-section">
-          <div className="section-bar"><div><span className="sr-kicker">LAST REQUESTS</span><h2>Activity</h2></div><Link href="/activity">View all →</Link></div>
-          <div className="operational-list">
-            {data.recent_activity.length ? data.recent_activity.map((item) => <div className="activity-row" key={item.request_id}><div><strong>{item.route_name}</strong><span>{item.provider_kind ?? "—"} / {item.model_id ?? "—"}</span></div><div><span>{item.latency_ms}ms</span><StatusDot status={item.status} /></div></div>) : <div className="operational-empty"><span>No requests yet. Prompt and completion content will never appear here.</span><Badge>METADATA ONLY</Badge></div>}
-          </div>
-        </section>
-      </div>
-    </div>
-  );
+    </>}
+  </div>;
 }

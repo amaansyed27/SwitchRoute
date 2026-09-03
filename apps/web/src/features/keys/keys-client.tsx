@@ -1,45 +1,52 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Badge, Button, EmptyState, Input, Label } from "@switchroute/ui";
+import { Button, buttonClass } from "@/components/ui/button";
+import { Drawer } from "@/components/ui/drawer";
+import { Alert, Badge, EmptyState, LoadingBlock, Retry } from "@/components/ui/feedback";
+import { Field, Input, Select } from "@/components/ui/form";
+import { Icon } from "@/components/ui/icon";
+import { Card, PageHeader, SectionHeader } from "@/components/ui/surface";
 import type { RouteRecord, VirtualKey } from "@/features/shared/types";
 import { manageFetch } from "@/lib/gateway/manage";
 
 type CreatedKey = VirtualKey & { key: string; shown_once: boolean };
 
 export function KeysClient() {
-  const [keys, setKeys] = useState<VirtualKey[]>([]);
-  const [routes, setRoutes] = useState<RouteRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
-  const [routeId, setRouteId] = useState("");
-  const [name, setName] = useState("Default");
-  const [environment, setEnvironment] = useState<"live" | "test">("live");
-  const [created, setCreated] = useState<CreatedKey | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const applyData = useCallback((keyData: VirtualKey[], routeData: RouteRecord[]) => { const activeRoutes = routeData.filter((route) => route.enabled); setKeys(keyData); setRoutes(activeRoutes); setRouteId((current) => current || activeRoutes[0]?.id || ""); }, []);
-  const load = useCallback(async () => { const [keyData, routeData] = await Promise.all([manageFetch<VirtualKey[]>("keys"), manageFetch<RouteRecord[]>("routes")]); applyData(keyData, routeData); }, [applyData]);
-
+  const [keys, setKeys] = useState<VirtualKey[]>([]); const [routes, setRoutes] = useState<RouteRecord[]>([]); const [loading, setLoading] = useState(true); const [adding, setAdding] = useState(false); const [routeId, setRouteId] = useState(""); const [name, setName] = useState("Production"); const [environment, setEnvironment] = useState<"live" | "test">("live"); const [created, setCreated] = useState<CreatedKey | null>(null); const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    try {
+      const [keyData, routeData] = await Promise.all([manageFetch<VirtualKey[]>("keys"), manageFetch<RouteRecord[]>("routes")]);
+      const active = routeData.filter((route) => route.enabled);
+      setKeys(keyData); setRoutes(active); setRouteId((current) => current || active[0]?.id || ""); setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "API keys could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
   useEffect(() => {
-    let active = true;
-    void Promise.all([manageFetch<VirtualKey[]>("keys"), manageFetch<RouteRecord[]>("routes")])
-      .then(([keyData, routeData]) => { if (active) applyData(keyData, routeData); })
-      .catch((err) => { if (active) setError(err instanceof Error ? err.message : "API keys could not be loaded."); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [applyData]);
-
+    let cancelled = false;
+    Promise.all([manageFetch<VirtualKey[]>("keys"), manageFetch<RouteRecord[]>("routes")])
+      .then(([keyData, routeData]) => {
+        if (cancelled) return;
+        const active = routeData.filter((route) => route.enabled);
+        setKeys(keyData);
+        setRoutes(active);
+        setRouteId((current) => current || active[0]?.id || "");
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "API keys could not be loaded.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
   async function create(event: FormEvent) { event.preventDefault(); setError(null); try { const result = await manageFetch<CreatedKey>("keys", { method: "POST", body: JSON.stringify({ route_id: routeId, environment, name }) }); setCreated(result); setAdding(false); await load(); } catch (err) { setError(err instanceof Error ? err.message : "API key could not be created."); } }
   async function revoke(key: VirtualKey) { if (!window.confirm(`Revoke ${key.name}? Requests using it will stop immediately.`)) return; try { await manageFetch(`keys/${key.id}`, { method: "DELETE" }); await load(); } catch (err) { setError(err instanceof Error ? err.message : "API key could not be revoked."); } }
-
-  return (
-    <div className="sr-stack key-page">
-      <div className="sr-page-header"><div><p className="sr-kicker">04 / ROUTE-BOUND ACCESS</p><h1>API Keys</h1><p>Every SwitchRoute key belongs to one Route and one environment. Full secrets are displayed exactly once.</p></div><Button disabled={loading || !routes.length} onClick={() => setAdding(true)}>Create API key</Button></div>
-      {error && <div className="sr-error">{error}</div>}
-      {created && <section className="secret-reveal"><div><p className="sr-kicker">COPY ONCE</p><h2>Your new key will disappear when you leave this state.</h2><p>Store it in your application secret manager now. SwitchRoute cannot recover it later.</p></div><div className="key-secret"><code>{created.key}</code><Button onClick={() => navigator.clipboard.writeText(created.key)}>Copy key</Button></div><Button className="sr-button-secondary secret-dismiss" onClick={() => setCreated(null)}>I saved it</Button></section>}
-      {adding && <form className="key-create-form" onSubmit={create}><div className="provider-connect-head"><div><p className="sr-kicker">NEW KEY</p><h2>Bind access to a Route</h2><p>Choose where requests should go and whether this credential is for live or test traffic.</p></div><Button type="button" className="sr-button-secondary" onClick={() => setAdding(false)}>Close</Button></div><div className="key-form-grid"><div className="sr-field"><Label htmlFor="key-name">Name</Label><Input id="key-name" required value={name} onChange={(event) => setName(event.target.value)} /></div><div className="sr-field"><Label htmlFor="key-route">Route</Label><select id="key-route" className="sr-select" value={routeId} onChange={(event) => setRouteId(event.target.value)}>{routes.map((route) => <option key={route.id} value={route.id}>{route.name}</option>)}</select></div><div className="sr-field"><Label htmlFor="key-env">Environment</Label><select id="key-env" className="sr-select" value={environment} onChange={(event) => setEnvironment(event.target.value as "live" | "test")}><option value="live">Live · sr_live_…</option><option value="test">Test · sr_test_…</option></select></div></div><Button disabled={!routeId || !name.trim()}>Generate key</Button></form>}
-      {loading ? <div className="dashboard-loading"><span className="sr-kicker">CREDENTIALS</span><strong>Loading route-bound keys…</strong><div className="loading-line" /></div> : !keys.length && !adding ? <EmptyState title="No SwitchRoute keys" body="Create a key after you have an active Route." action={<Button disabled={!routes.length} onClick={() => setAdding(true)}>Create first key</Button>} /> : <div className="key-list"><div className="list-caption key-caption"><span>Key</span><span>Route</span><span>Last used</span><span>Action</span></div>{keys.map((key) => <section className="key-row" key={key.id}><div><div className="sr-row"><strong>{key.name}</strong><Badge tone={key.status === "active" ? "success" : "danger"}>{key.status}</Badge><Badge>{key.environment}</Badge></div><span className="sr-mono">{key.prefix}••••••••</span></div><div><strong>{key.route_name}</strong><span>bound route</span></div><div><strong>{key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : "Never"}</strong><span>{key.last_used_at ? new Date(key.last_used_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "no traffic"}</span></div><div>{key.status === "active" && <Button className="sr-button-danger" onClick={() => revoke(key)}>Revoke</Button>}</div></section>)}</div>}
-    </div>
-  );
+  return <div><PageHeader title="API keys" eyebrow="Access" description="Create route-bound SwitchRoute keys for live or test traffic. Secrets are shown exactly once." action={<Button disabled={loading || !routes.length} onClick={() => setAdding(true)}><Icon name="plus" className="size-4"/>Create key</Button>}/>{error && <div className="mb-4"><Retry message={error} onRetry={() => void load()}/></div>}{created && <Card className="mb-5 overflow-hidden border-[color-mix(in_srgb,var(--accent)_35%,var(--border))]"><div className="p-4"><Badge tone="accent">Copy now</Badge><h2 className="mt-3 text-base font-semibold">New key created</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">SwitchRoute cannot recover this secret after you dismiss it.</p><div className="mt-4 flex flex-col gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-2 sm:flex-row sm:items-center"><code className="min-w-0 flex-1 break-all px-2 font-mono text-xs">{created.key}</code><Button size="sm" onClick={() => navigator.clipboard.writeText(created.key)}><Icon name="copy" className="size-3.5"/>Copy</Button></div><div className="mt-3 flex justify-end"><Button variant="ghost" size="sm" onClick={() => setCreated(null)}>I saved it</Button></div></div></Card>}{loading ? <LoadingBlock label="Loading API keys"/> : !routes.length ? <EmptyState title="Create a waterfall first" description="Every SwitchRoute API key is bound to one active waterfall." action={<Link href="/routes" className={buttonClass({ size: "sm" })}>Open waterfalls</Link>}/> : !keys.length ? <EmptyState title="No API keys" description="Create a live or test key and bind it to one waterfall." action={<Button size="sm" onClick={() => setAdding(true)}>Create key</Button>}/> : <Card className="overflow-hidden"><SectionHeader title="Keys" description={`${keys.filter((key) => key.status === "active").length} active credential${keys.filter((key) => key.status === "active").length === 1 ? "" : "s"}.`}/><div className="overflow-x-auto border-t border-[var(--border)]"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-[var(--surface-muted)] text-[11px] uppercase tracking-[.06em] text-[var(--muted-foreground)]"><tr><th className="px-4 py-2.5 font-medium">Key</th><th className="px-4 py-2.5 font-medium">Waterfall</th><th className="px-4 py-2.5 font-medium">Environment</th><th className="px-4 py-2.5 font-medium">Last used</th><th className="px-4 py-2.5"/></tr></thead><tbody className="divide-y divide-[var(--border)]">{keys.map((key) => <tr key={key.id}><td className="px-4 py-3"><div className="flex items-center gap-2"><strong className="text-xs">{key.name}</strong><Badge tone={key.status === "active" ? "success" : "danger"}>{key.status}</Badge></div><code className="mt-1 block font-mono text-[11px] text-[var(--muted-foreground)]">{key.prefix}••••••••</code></td><td className="px-4 py-3 text-xs">{key.route_name}</td><td className="px-4 py-3"><Badge>{key.environment}</Badge></td><td className="px-4 py-3 text-xs text-[var(--muted-foreground)]">{key.last_used_at ? new Date(key.last_used_at).toLocaleString() : "Never"}</td><td className="px-4 py-3 text-right">{key.status === "active" && <Button variant="danger" size="sm" onClick={() => void revoke(key)}>Revoke</Button>}</td></tr>)}</tbody></table></div></Card>}{adding && <Drawer title="Create API key" description="Bind this credential to one waterfall and environment." onClose={() => setAdding(false)}><form onSubmit={create} className="space-y-5"><Field label="Key name" htmlFor="key-name"><Input id="key-name" required value={name} onChange={(event) => setName(event.target.value)}/></Field><Field label="Waterfall" htmlFor="key-route"><Select id="key-route" value={routeId} onChange={(event) => setRouteId(event.target.value)}>{routes.map((route) => <option key={route.id} value={route.id}>{route.name}</option>)}</Select></Field><Field label="Environment" htmlFor="key-env" hint={environment === "live" ? "Creates an sr_live_… credential." : "Creates an sr_test_… credential."}><Select id="key-env" value={environment} onChange={(event) => setEnvironment(event.target.value as "live" | "test")}><option value="live">Live</option><option value="test">Test</option></Select></Field>{error && <Alert>{error}</Alert>}<div className="flex justify-end border-t border-[var(--border)] pt-4"><Button type="submit" disabled={!routeId || !name.trim()}>Generate key</Button></div></form></Drawer>}</div>;
 }

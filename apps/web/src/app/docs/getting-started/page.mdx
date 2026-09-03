@@ -1,18 +1,26 @@
-# Getting Started
+# Getting started
 
-SwitchRoute gives you one OpenAI-compatible API for the model providers you already use. There is no required onboarding wizard: sign in and use the control plane directly.
+SwitchRoute gives your application one OpenAI-compatible endpoint backed by an ordered **waterfall** of provider/model targets.
 
-## 1. Connect a provider
+There is no onboarding wizard. Sign in and use the control plane directly.
 
-Open **Providers**, choose Groq, Gemini, or OpenRouter, paste the provider key, and run **Test connection**. SwitchRoute discovers chat-capable models before it lets you save. The credential becomes write-only after save.
+## 1. Add provider keys
 
-## 2. Create a Route
+Open **Providers**, choose a provider, paste its API key, and run **Test credential**. SwitchRoute validates the credential and discovers the models available to that account before the connection can be saved.
 
-A Route is an ordered list of provider/model targets. Choose **Priority** to follow that order exactly, or **Free First** to prefer models marked free/free-capable before paid fallbacks.
+The current direct adapters are OpenAI, Anthropic, Gemini, Groq, xAI, Mistral, and OpenRouter.
 
-## 3. Generate a key
+Provider credentials are encrypted and become write-only after save.
 
-Open **API Keys**, choose the Route, and create either a live or test key. Copy the full `sr_live_...` or `sr_test_...` value immediately; SwitchRoute stores only a keyed hash and cannot recover it.
+## 2. Create a waterfall
+
+Open **Waterfalls** and create a new waterfall. Add provider/model targets and drag them into order.
+
+Choose **Priority** to follow the target order exactly, or **Free first** to prefer targets classified as free or free-capable before paid fallbacks.
+
+## 3. Generate a SwitchRoute key
+
+Open **API keys**, choose an active waterfall, and create either a live or test key. Copy the full `sr_live_...` or `sr_test_...` value immediately; the secret is shown once and cannot be recovered later.
 
 ## 4. Send a request
 
@@ -21,7 +29,7 @@ from openai import OpenAI
 
 client = OpenAI(
     api_key="sr_live_...",
-    base_url="https://api.switchroute.dawnlightlabs.com/v1"
+    base_url="https://switchroute-gateway.vercel.app/v1"
 )
 
 response = client.chat.completions.create(
@@ -31,3 +39,5 @@ response = client.chat.completions.create(
 ```
 
 During local development, use `http://localhost:8000/v1` instead.
+
+Changing waterfall order does not require changing application code.

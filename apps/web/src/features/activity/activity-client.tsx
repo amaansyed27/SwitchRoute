@@ -1,21 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Badge, Button, EmptyState, StatusDot } from "@switchroute/ui";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Drawer } from "@/components/ui/drawer";
+import { Badge, EmptyState, LoadingBlock, Retry, StatusDot } from "@/components/ui/feedback";
+import { Input } from "@/components/ui/form";
+import { Icon } from "@/components/ui/icon";
+import { Card, PageHeader } from "@/components/ui/surface";
 import type { ActivityRecord } from "@/features/shared/types";
 import { manageFetch } from "@/lib/gateway/manage";
 
 export function ActivityClient() {
-  const [activity, setActivity] = useState<ActivityRecord[] | null>(null);
-  const [selected, setSelected] = useState<ActivityRecord | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => { manageFetch<ActivityRecord[]>("activity?limit=100").then(setActivity).catch((err) => setError(err.message)); }, []);
-  if (error) return <div className="sr-error">{error}</div>;
-
-  return (
-    <div className="sr-stack activity-page">
-      <div className="sr-page-header"><div><p className="sr-kicker">05 / METADATA ONLY</p><h1>Activity</h1><p>Routing diagnostics without prompt, completion, system-prompt, tool or upload content.</p></div><Badge>ZERO CONTENT RETENTION</Badge></div>
-      {activity === null ? <div className="dashboard-loading"><span className="sr-kicker">REQUEST LOG</span><strong>Loading sanitized request metadata…</strong><div className="loading-line" /></div> : !activity.length ? <EmptyState title="No requests yet" body="Your first successful or failed routed request will appear here without content." /> : <div className="activity-layout"><div className="activity-table-wrap"><table className="data-table activity-table"><thead><tr><th>Time</th><th>Provider / model</th><th>Route</th><th>Latency</th><th>Tokens</th><th>Fallback</th><th>Status</th><th /></tr></thead><tbody>{activity.map((item) => <tr key={item.request_id} data-selected={selected?.request_id === item.request_id}><td>{new Date(item.created_at).toLocaleString()}</td><td><strong>{item.provider_kind ?? "—"}</strong><br/><small>{item.model_id ?? "—"}</small></td><td>{item.route_name}</td><td>{item.latency_ms}ms</td><td>{item.input_tokens ?? "?"} → {item.output_tokens ?? "?"}</td><td>{item.fallback_count ? `${item.fallback_count}×` : "—"}</td><td><span className="sr-row"><StatusDot status={item.status} />{item.status}</span></td><td><Button className="sr-button-secondary table-action" onClick={() => setSelected(item)}>Details</Button></td></tr>)}</tbody></table></div>{selected && <aside className="request-detail"><div className="request-detail-head"><div><p className="sr-kicker">REQUEST DETAIL</p><h2>{selected.status === "success" ? "Completed" : "Failed"}</h2></div><Button className="sr-button-secondary" onClick={() => setSelected(null)}>Close</Button></div><dl><div><dt>Request ID</dt><dd className="sr-mono">{selected.request_id}</dd></div><div><dt>Route</dt><dd>{selected.route_name}</dd></div><div><dt>Provider</dt><dd>{selected.provider_kind ?? "Unavailable"}</dd></div><div><dt>Model</dt><dd className="sr-mono">{selected.model_id ?? "Unavailable"}</dd></div><div><dt>Latency</dt><dd>{selected.latency_ms} ms</dd></div><div><dt>Tokens</dt><dd>{selected.input_tokens ?? "?"} in / {selected.output_tokens ?? "?"} out</dd></div><div><dt>Fallbacks</dt><dd>{selected.fallback_count}</dd></div>{selected.error_category && <div><dt>Error category</dt><dd>{selected.error_category}</dd></div>}</dl><p className="request-detail-note">Request and response content is intentionally unavailable.</p></aside>}</div>}
-    </div>
-  );
+  const [activity, setActivity] = useState<ActivityRecord[] | null>(null); const [selected, setSelected] = useState<ActivityRecord | null>(null); const [query, setQuery] = useState(""); const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    try {
+      const result = await manageFetch<ActivityRecord[]>("activity?limit=100");
+      setActivity(result); setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Activity could not be loaded.");
+    }
+  }, []);
+  useEffect(() => {
+    let cancelled = false;
+    manageFetch<ActivityRecord[]>("activity?limit=100")
+      .then((result) => {
+        if (cancelled) return;
+        setActivity(result);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Activity could not be loaded.");
+      });
+    return () => { cancelled = true; };
+  }, []);
+  const rows = useMemo(() => (activity ?? []).filter((item) => `${item.route_name} ${item.provider_kind ?? ""} ${item.model_id ?? ""} ${item.status}`.toLowerCase().includes(query.toLowerCase())), [activity, query]);
+  return <div><PageHeader title="Activity" eyebrow="Metadata only" description="Routing diagnostics without prompt, completion, tool, system-prompt, or upload content." action={<div className="relative w-56"><Icon name="search" className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-[var(--muted-foreground)]"/><Input className="pl-8" aria-label="Filter activity" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter requests"/></div>}/>{error && <Retry message={error} onRetry={() => void load()}/>} {activity === null && !error ? <LoadingBlock label="Loading activity"/> : activity && !activity.length ? <EmptyState title="No requests yet" description="Successful and failed routed requests will appear here as sanitized operational metadata."/> : activity && <Card className="overflow-hidden"><div className="overflow-x-auto"><table className="w-full min-w-[940px] text-left"><thead className="bg-[var(--surface-muted)] text-[11px] uppercase tracking-[.06em] text-[var(--muted-foreground)]"><tr><th className="px-4 py-2.5 font-medium">Time</th><th className="px-4 py-2.5 font-medium">Provider / model</th><th className="px-4 py-2.5 font-medium">Waterfall</th><th className="px-4 py-2.5 font-medium">Latency</th><th className="px-4 py-2.5 font-medium">Tokens</th><th className="px-4 py-2.5 font-medium">Fallbacks</th><th className="px-4 py-2.5 font-medium">Status</th><th/></tr></thead><tbody className="divide-y divide-[var(--border)]">{rows.map((item) => <tr key={item.request_id} className="hover:bg-[var(--surface-hover)]"><td className="px-4 py-3 text-xs text-[var(--muted-foreground)]">{new Date(item.created_at).toLocaleString()}</td><td className="px-4 py-3"><strong className="block text-xs">{item.provider_kind ?? "—"}</strong><code className="mt-0.5 block max-w-56 truncate font-mono text-[11px] text-[var(--muted-foreground)]">{item.model_id ?? "—"}</code></td><td className="px-4 py-3 text-xs">{item.route_name}</td><td className="px-4 py-3 text-xs">{item.latency_ms} ms</td><td className="px-4 py-3 text-xs text-[var(--muted-foreground)]">{item.input_tokens ?? "?"} → {item.output_tokens ?? "?"}</td><td className="px-4 py-3 text-xs">{item.fallback_count || "—"}</td><td className="px-4 py-3"><span className="flex items-center gap-2 text-xs capitalize"><StatusDot status={item.status}/>{item.status}</span></td><td className="px-4 py-3 text-right"><Button variant="ghost" size="sm" onClick={() => setSelected(item)}>Details</Button></td></tr>)}</tbody></table></div></Card>}{selected && <Drawer title="Request details" description="Sanitized routing metadata only." onClose={() => setSelected(null)}><dl className="space-y-2">{[["Request ID", selected.request_id], ["Status", selected.status], ["Waterfall", selected.route_name], ["Provider", selected.provider_kind ?? "Unavailable"], ["Model", selected.model_id ?? "Unavailable"], ["Latency", `${selected.latency_ms} ms`], ["Tokens", `${selected.input_tokens ?? "?"} in / ${selected.output_tokens ?? "?"} out`], ["Fallbacks", String(selected.fallback_count)], ...(selected.error_category ? [["Error category", selected.error_category]] : [])].map(([label,value]) => <div key={label} className="grid grid-cols-[120px_minmax(0,1fr)] gap-4 border-b border-[var(--border)] py-3"><dt className="text-xs text-[var(--muted-foreground)]">{label}</dt><dd className="break-all text-xs font-medium">{value}</dd></div>)}</dl><div className="mt-5"><Badge>Content intentionally unavailable</Badge></div></Drawer>}</div>;
 }
