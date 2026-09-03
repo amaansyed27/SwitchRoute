@@ -103,8 +103,8 @@ button { cursor: pointer; }
 [data-reveal][data-visible="true"] { opacity: 1; transform: translate3d(0,0,0) scale(1); filter: blur(0); }
 
 [data-parallax] {
-  transform: translate3d(0, var(--parallax-offset, 0px), 0);
-  will-change: transform;
+  translate: 0 var(--parallax-offset, 0px);
+  will-change: translate;
 }
 
 .sr-hero-grid {
@@ -116,7 +116,7 @@ button { cursor: pointer; }
   background: radial-gradient(460px circle at var(--pointer-x) var(--pointer-y), color-mix(in srgb, var(--accent) 13%, transparent), transparent 72%);
 }
 
-.sr-morph-orb { position: absolute; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border)); background: color-mix(in srgb, var(--accent) 8%, transparent); filter: blur(.2px); will-change: border-radius, transform; }
+.sr-morph-orb { position: absolute; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border)); background: color-mix(in srgb, var(--accent) 8%, transparent); filter: blur(.2px); will-change: border-radius, transform, translate; }
 .sr-morph-orb-a { width: 360px; height: 300px; right: -120px; top: 60px; animation: sr-morph-a 13s ease-in-out infinite alternate; }
 .sr-morph-orb-b { width: 250px; height: 220px; left: -90px; bottom: 40px; animation: sr-morph-b 16s ease-in-out infinite alternate; }
 @keyframes sr-morph-a { 0% { border-radius: 46% 54% 62% 38% / 48% 38% 62% 52%; transform: rotate(-8deg) translate3d(0,0,0); } 100% { border-radius: 64% 36% 42% 58% / 37% 61% 39% 63%; transform: rotate(13deg) translate3d(-26px,28px,0); } }
@@ -138,6 +138,7 @@ button { cursor: pointer; }
 .sr-provider-chip:hover { transform: translateY(-3px) scale(1.015); border-color: var(--border-strong); background: var(--surface-strong); }
 
 .sr-feature-card { position: relative; overflow: hidden; }
+.sr-feature-card:hover { transform: translate3d(0,-4px,0) scale(1.005) !important; border-color: var(--border-strong); }
 .sr-feature-card::after { content: ""; position: absolute; inset: auto -20% -80% 20%; height: 140px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 8%, transparent); filter: blur(24px); transition: transform 400ms ease, opacity 400ms ease; opacity: .35; }
 .sr-feature-card:hover::after { transform: translateY(-38px) scale(1.15); opacity: .75; }
 
@@ -158,5 +159,5 @@ button { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
   [data-reveal] { opacity: 1 !important; transform: none !important; filter: none !important; }
-  [data-parallax] { transform: none !important; }
+  [data-parallax] { translate: none !important; }
 }
