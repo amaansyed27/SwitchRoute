@@ -45,9 +45,9 @@ async def create_provider(
 
 async def provider_secret(
     pool: asyncpg.Pool, workspace_id: UUID, provider_id: UUID
-) -> tuple[str, str, str]:
+) -> tuple[str, str, str, dict[str, Any]]:
     row = await pool.fetchrow(
-        """select p.provider_kind,c.encrypted_secret,c.key_id
+        """select p.provider_kind,p.metadata,c.encrypted_secret,c.key_id
         from public.provider_connections p
         join private.provider_credentials c on c.provider_connection_id=p.id
         where p.id=$1 and p.workspace_id=$2""",
@@ -56,7 +56,8 @@ async def provider_secret(
     )
     if not row:
         raise SwitchRouteError("provider_not_found", "Provider not found.", 404)
-    return row["provider_kind"], row["encrypted_secret"], row["key_id"]
+    metadata = row["metadata"] if isinstance(row["metadata"], dict) else {}
+    return row["provider_kind"], row["encrypted_secret"], row["key_id"], metadata
 
 
 async def update_provider_health(

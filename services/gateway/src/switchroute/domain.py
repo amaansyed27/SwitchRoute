@@ -1,6 +1,11 @@
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
+
+
+def discovered_now() -> str:
+    return datetime.now(UTC).isoformat()
 
 
 @dataclass(slots=True)
@@ -8,7 +13,13 @@ class ProviderModel:
     id: str
     name: str
     billing_tier: str = "unknown"
+    input_price_per_million_usd: float | None = None
+    output_price_per_million_usd: float | None = None
+    context_window: int | None = None
+    max_output_tokens: int | None = None
     capabilities: list[str] = field(default_factory=lambda: ["chat"])
+    metadata_provenance: str = "unknown"
+    discovered_at: str = field(default_factory=discovered_now)
 
 
 @dataclass(slots=True)

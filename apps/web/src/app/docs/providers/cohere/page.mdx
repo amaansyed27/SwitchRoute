@@ -1,0 +1,22 @@
+# Cohere
+
+## Credential
+Get an API key from **Cohere Dashboard → API keys**. It is validated server-side and encrypted before storage.
+
+## Validation
+SwitchRoute calls `GET https://api.cohere.com/v1/models?endpoint=chat` with bearer authentication.
+
+## Model discovery
+Only non-deprecated chat models are normalized. Missing pricing or output-limit data remains `unknown`.
+
+## Free usage
+Free availability is reported as unknown because account entitlements can change.
+
+## Quota and rate metadata
+Runtime failures are normalized; proactive quota state is not stored.
+
+## Known limitations
+Only metadata returned by Cohere is used; no quality or capability inference is fabricated.
+
+## Disconnect
+Use **Providers → Disconnect** after removing this connection from all Routes.

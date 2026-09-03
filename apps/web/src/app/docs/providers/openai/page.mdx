@@ -1,0 +1,22 @@
+# OpenAI
+
+## Credential
+Get an API key from **OpenAI Platform → API keys**. SwitchRoute expects that API key; it is gateway-only, encrypted before storage, and never returned after save.
+
+## Validation
+SwitchRoute authenticates `GET https://api.openai.com/v1/models` with the key. Raw upstream error bodies are not exposed or persisted.
+
+## Model discovery
+The authenticated model list is normalized and obvious non-chat families are filtered. Missing pricing, limits, or capabilities remain `unknown`.
+
+## Free usage
+No provider-side free tier is assumed.
+
+## Quota and rate metadata
+Runtime auth, rate-limit, timeout, and provider failures are normalized. Proactive quota state is not ingested in Slice 1.8.
+
+## Known limitations
+OpenAI's model list is sparse for several Smart Routing fields, so SwitchRoute does not guess them.
+
+## Disconnect
+In **Providers**, choose **Disconnect**. Remove the connection from any Routes first; referenced connections cannot be deleted.

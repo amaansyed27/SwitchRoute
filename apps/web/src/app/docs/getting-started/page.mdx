@@ -1,26 +1,28 @@
 # Getting started
 
-SwitchRoute gives your application one OpenAI-compatible endpoint backed by an ordered **waterfall** of provider/model targets.
+SwitchRoute gives your application one OpenAI-compatible endpoint backed by an ordered **Route** of provider/model targets.
 
 There is no onboarding wizard. Sign in and use the control plane directly.
 
 ## 1. Add provider keys
 
-Open **Providers**, choose a provider, paste its API key, and run **Test credential**. SwitchRoute validates the credential and discovers the models available to that account before the connection can be saved.
+Open **Providers**, choose a hosted connection type, paste its API key, and run **Test credential**. SwitchRoute validates the credential and discovers the models available to that account before the connection can be saved.
 
-The current direct adapters are OpenAI, Anthropic, Gemini, Groq, xAI, Mistral, and OpenRouter.
+Slice 1.8 includes 17 hosted connection types across direct providers, inference platforms, gateways, and a public HTTPS custom OpenAI-compatible endpoint. See the [provider catalog](/docs/providers) for the complete list and provider-specific validation behavior.
 
 Provider credentials are encrypted and become write-only after save.
 
-## 2. Create a waterfall
+## 2. Create a Route
 
-Open **Waterfalls** and create a new waterfall. Add provider/model targets and drag them into order.
+Open **Routes** and create a new Route. Add provider/model targets and put them in the desired order.
 
-Choose **Priority** to follow the target order exactly, or **Free first** to prefer targets classified as free or free-capable before paid fallbacks.
+Choose **Priority** to follow the target order exactly, or **Free first** to prefer targets whose discovered billing tier is `free` or `free-capable` before paid/unknown fallbacks.
+
+Advanced quota-aware, Cheapest, Fastest, and Balanced strategies are not implemented in Slice 1.8.
 
 ## 3. Generate a SwitchRoute key
 
-Open **API keys**, choose an active waterfall, and create either a live or test key. Copy the full `sr_live_...` or `sr_test_...` value immediately; the secret is shown once and cannot be recovered later.
+Open **API keys**, choose an active Route, and create either a live or test key. Copy the full `sr_live_...` or `sr_test_...` value immediately; the secret is shown once and cannot be recovered later.
 
 ## 4. Send a request
 
@@ -29,7 +31,7 @@ from openai import OpenAI
 
 client = OpenAI(
     api_key="sr_live_...",
-    base_url="https://switchroute-gateway.vercel.app/v1"
+    base_url="https://api.switchroute.dawnlightlabs.com/v1"
 )
 
 response = client.chat.completions.create(
@@ -40,4 +42,4 @@ response = client.chat.completions.create(
 
 During local development, use `http://localhost:8000/v1` instead.
 
-Changing waterfall order does not require changing application code.
+Changing Route order or provider targets does not require changing application code.

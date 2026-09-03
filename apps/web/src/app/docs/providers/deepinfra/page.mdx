@@ -1,0 +1,22 @@
+# DeepInfra
+
+## Credential
+Get an API token from **DeepInfra Dashboard → API tokens**. SwitchRoute validates and encrypts it server-side.
+
+## Validation
+The adapter validates the credential against an authenticated DeepInfra account/deployment endpoint, then reads the provider model catalog.
+
+## Model discovery
+Only text-generation models are normalized. Context and pricing fields are used only when the response shape supplies them.
+
+## Free usage
+Free availability is reported as unknown.
+
+## Quota and rate metadata
+Runtime provider failures are normalized; proactive balance/quota routing is not implemented.
+
+## Known limitations
+DeepInfra exposes different metadata across modalities, so unsupported pricing/capability shapes stay `unknown` rather than guessed.
+
+## Disconnect
+Use **Providers → Disconnect** after removing this connection from all Routes.

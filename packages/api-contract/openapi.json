@@ -83,6 +83,42 @@
         "title": "KeyCreate",
         "type": "object"
       },
+      "ProviderConnectionConfig": {
+        "properties": {
+          "base_url": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "discover_models": {
+            "default": true,
+            "title": "Discover Models",
+            "type": "boolean"
+          },
+          "manual_model_id": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual Model Id"
+          }
+        },
+        "title": "ProviderConnectionConfig",
+        "type": "object"
+      },
       "ProviderCreate": {
         "properties": {
           "api_key": {
@@ -91,6 +127,16 @@
             "title": "Api Key",
             "type": "string"
           },
+          "connection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProviderConnectionConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "display_name": {
             "maxLength": 80,
             "minLength": 1,
@@ -98,16 +144,9 @@
             "type": "string"
           },
           "provider_kind": {
-            "enum": [
-              "openai",
-              "anthropic",
-              "gemini",
-              "groq",
-              "xai",
-              "mistral",
-              "openrouter",
-              "test"
-            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
             "title": "Provider Kind",
             "type": "string"
           }
@@ -128,17 +167,20 @@
             "title": "Api Key",
             "type": "string"
           },
+          "connection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProviderConnectionConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "provider_kind": {
-            "enum": [
-              "openai",
-              "anthropic",
-              "gemini",
-              "groq",
-              "xai",
-              "mistral",
-              "openrouter",
-              "test"
-            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
             "title": "Provider Kind",
             "type": "string"
           }
@@ -582,6 +624,53 @@
           }
         },
         "summary": "Revoke Key",
+        "tags": [
+          "Product management"
+        ]
+      }
+    },
+    "/manage/provider-catalog": {
+      "get": {
+        "operationId": "provider_catalog_manage_provider_catalog_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provider Catalog",
         "tags": [
           "Product management"
         ]

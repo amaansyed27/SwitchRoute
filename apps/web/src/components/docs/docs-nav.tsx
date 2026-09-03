@@ -2,9 +2,9 @@ import Link from "next/link";
 
 const groups = [
   ["Start", [["/docs/getting-started", "Getting started"], ["/docs/core-concepts", "Core concepts"]]],
-  ["Build", [["/docs/providers", "Providers"], ["/docs/routes", "Waterfalls"], ["/docs/api-keys", "API keys"], ["/docs/openai-sdk", "OpenAI SDK"]]],
+  ["Build", [["/docs/providers", "Providers"], ["/docs/routes", "Routes"], ["/docs/api-keys", "API keys"], ["/docs/openai-sdk", "OpenAI SDK"]]],
   ["Examples", [["/docs/javascript", "JavaScript"], ["/docs/python", "Python"], ["/docs/curl", "cURL"]]],
-  ["Provider guides", [["/docs/groq", "Groq"], ["/docs/gemini", "Gemini"], ["/docs/openrouter", "OpenRouter"]]],
+  ["Provider guides", [["/docs/providers/openai", "OpenAI"], ["/docs/providers/anthropic", "Anthropic"], ["/docs/providers/gemini", "Gemini"], ["/docs/providers/groq", "Groq"], ["/docs/providers/openrouter", "OpenRouter"], ["/docs/providers/custom-openai", "Custom cloud"]]],
   ["Reference", [["/docs/security", "Security"], ["/docs/api-errors", "API errors"], ["/docs/development", "Development"]]],
 ] as const;
 

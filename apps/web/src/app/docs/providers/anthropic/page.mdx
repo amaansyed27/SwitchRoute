@@ -1,0 +1,22 @@
+# Anthropic
+
+## Credential
+Get an API key from **Anthropic Console → API Keys**. SwitchRoute expects an Anthropic API key and stores it only in the encrypted private credential path.
+
+## Validation
+SwitchRoute calls `GET https://api.anthropic.com/v1/models` with `x-api-key` and the Anthropic version header.
+
+## Model discovery
+Claude models available to the credential are normalized. Fields Anthropic does not publish stay `unknown`.
+
+## Free usage
+No provider-side free tier is assumed.
+
+## Quota and rate metadata
+Runtime provider failures are normalized; proactive quota state is not ingested yet.
+
+## Known limitations
+The model endpoint does not expose every pricing/capability field planned for Smart Routing.
+
+## Disconnect
+Use **Providers → Disconnect** after removing this connection from all Routes.

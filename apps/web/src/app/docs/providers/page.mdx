@@ -1,14 +1,43 @@
 # Providers
 
-Slice 1 supports **Groq**, **Gemini**, and **OpenRouter**.
+Slice 1.8 supports **17 hosted connection types** through one gateway-owned provider catalog. The web app reads that catalog from `GET /manage/provider-catalog`; provider identity is not maintained as a second frontend list.
 
-The connection flow is deliberately short:
+## Direct
 
-1. Choose a provider.
-2. Paste a provider API key.
-3. Test the credential and discover models.
+- [OpenAI](/docs/providers/openai)
+- [Anthropic](/docs/providers/anthropic)
+- [Google Gemini](/docs/providers/gemini)
+- [xAI](/docs/providers/xai)
+- [Mistral AI](/docs/providers/mistral)
+- [DeepSeek](/docs/providers/deepseek)
+- [Cohere](/docs/providers/cohere)
+
+## Inference
+
+- [Groq](/docs/providers/groq)
+- [Cerebras](/docs/providers/cerebras)
+- [NVIDIA NIM](/docs/providers/nvidia-nim)
+- [SambaNova](/docs/providers/sambanova)
+- [Together AI](/docs/providers/together)
+- [Fireworks AI](/docs/providers/fireworks)
+- [DeepInfra](/docs/providers/deepinfra)
+
+## Gateways
+
+- [OpenRouter](/docs/providers/openrouter)
+- [Hugging Face Inference Providers](/docs/providers/huggingface)
+- [Custom OpenAI-compatible cloud endpoint](/docs/providers/custom-openai)
+
+## Connection lifecycle
+
+1. Choose a provider from the gateway catalog.
+2. Enter the credential and any provider-specific connection fields.
+3. Test the credential and discover/normalize models.
 4. Save only after validation succeeds.
+5. Use any discovered model as a Route target.
+6. Re-test later to refresh provider health and model metadata.
+7. Disconnect after removing the provider from Routes that reference it.
 
-Saved secrets are encrypted by the gateway and stored in a private Postgres schema. The web client can see provider identity, health, and discovered model metadata, but never the decrypted credential.
+Saved credentials are encrypted by the gateway and stored in the private Postgres credential path. The browser can read provider identity, health, connection-safe metadata, and discovered models, but never the decrypted key.
 
-Use the **Test** action later to revalidate a connection and refresh its discovered model metadata. Disconnect is blocked if an existing Route still references the provider.
+Model metadata is evidence-based. Missing pricing, context, maximum output, or capability data remains `unknown`; SwitchRoute does not invent a quality score.

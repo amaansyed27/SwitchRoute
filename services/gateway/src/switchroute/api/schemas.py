@@ -3,16 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-ProviderKind = Literal[
-    "openai",
-    "anthropic",
-    "gemini",
-    "groq",
-    "xai",
-    "mistral",
-    "openrouter",
-    "test",
-]
+PROVIDER_KIND_PATTERN = r"^[a-z0-9][a-z0-9_-]{0,63}$"
 
 
 class ChatCompletionRequest(BaseModel):
@@ -22,9 +13,16 @@ class ChatCompletionRequest(BaseModel):
     stream: bool = False
 
 
+class ProviderConnectionConfig(BaseModel):
+    base_url: str | None = Field(default=None, max_length=2048)
+    discover_models: bool = True
+    manual_model_id: str | None = Field(default=None, min_length=1, max_length=240)
+
+
 class ProviderCredential(BaseModel):
-    provider_kind: ProviderKind
+    provider_kind: str = Field(min_length=1, max_length=64, pattern=PROVIDER_KIND_PATTERN)
     api_key: str = Field(min_length=3, max_length=2048)
+    connection: ProviderConnectionConfig | None = None
 
 
 class ProviderCreate(ProviderCredential):

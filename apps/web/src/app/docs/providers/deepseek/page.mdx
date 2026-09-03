@@ -1,0 +1,22 @@
+# DeepSeek
+
+## Credential
+Get an API key from **DeepSeek Platform → API keys**. SwitchRoute validates and encrypts it server-side.
+
+## Validation
+SwitchRoute calls `GET https://api.deepseek.com/models` with bearer authentication.
+
+## Model discovery
+Returned language models are normalized for Route targets; sparse fields remain `unknown`.
+
+## Free usage
+Free availability is reported as unknown.
+
+## Quota and rate metadata
+Runtime failures are normalized; no proactive balance/quota feed is used in Slice 1.8.
+
+## Known limitations
+SwitchRoute does not invent reasoning flags, pricing, or limits absent from provider discovery.
+
+## Disconnect
+Use **Providers → Disconnect** after removing this connection from all Routes.

@@ -14,7 +14,8 @@ class Repo:
         self.records = []
 
     async def provider_secret(self, workspace_id, provider_id):
-        return "x", "cipher", "kid"
+        kinds = {UUID(int=5): "groq", UUID(int=7): "gemini"}
+        return kinds[provider_id], "cipher", "kid", {}
 
     async def mark_key_used(self, key_id):
         pass
@@ -33,7 +34,9 @@ class Invoker:
         self.fail_midstream = fail_midstream
         self.calls = []
 
-    async def stream(self, provider_kind, model_id, api_key, payload):
+    async def stream(
+        self, provider_kind, model_id, api_key, payload, connection_config=None
+    ):
         self.calls.append(provider_kind)
         if provider_kind == "groq" and not self.fail_midstream:
             raise RuntimeError("failed before content")

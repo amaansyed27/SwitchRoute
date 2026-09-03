@@ -17,25 +17,39 @@ class LiteLLMInvoker:
         self._enable_test_provider = enable_test_provider
 
     async def complete(
-        self, provider_kind: str, model_id: str, api_key: str, payload: dict[str, Any]
+        self,
+        provider_kind: str,
+        model_id: str,
+        api_key: str,
+        payload: dict[str, Any],
+        connection_config: dict[str, Any] | None = None,
     ) -> Any:
         if provider_kind == "test" and self._enable_test_provider:
             return self._test_response()
-        model = self._providers.get(provider_kind).litellm_model(model_id)
+        target = await self._providers.get(provider_kind).litellm_kwargs(
+            model_id, connection_config
+        )
         args = {key: value for key, value in payload.items() if key not in {"model", "stream"}}
-        return await litellm.acompletion(model=model, api_key=api_key, stream=False, **args)
+        return await litellm.acompletion(api_key=api_key, stream=False, **target, **args)
 
     async def stream(
-        self, provider_kind: str, model_id: str, api_key: str, payload: dict[str, Any]
+        self,
+        provider_kind: str,
+        model_id: str,
+        api_key: str,
+        payload: dict[str, Any],
+        connection_config: dict[str, Any] | None = None,
     ) -> AsyncIterator[Any]:
         if provider_kind == "test" and self._enable_test_provider:
             for chunk in self._test_chunks():
                 yield chunk
             return
-        model = self._providers.get(provider_kind).litellm_model(model_id)
+        target = await self._providers.get(provider_kind).litellm_kwargs(
+            model_id, connection_config
+        )
         args = {key: value for key, value in payload.items() if key not in {"model", "stream"}}
         stream_response: Any = await litellm.acompletion(
-            model=model, api_key=api_key, stream=True, **args
+            api_key=api_key, stream=True, **target, **args
         )
         async for chunk in stream_response:
             yield chunk

@@ -1,0 +1,22 @@
+# NVIDIA NIM
+
+## Credential
+Get an API key from the **NVIDIA API Catalog / build.nvidia.com**. SwitchRoute validates and encrypts it server-side.
+
+## Validation
+SwitchRoute calls `GET https://integrate.api.nvidia.com/v1/models` with bearer authentication.
+
+## Model discovery
+Hosted API Catalog model IDs are normalized for LiteLLM's `nvidia_nim` provider mapping. Obvious non-chat families are filtered.
+
+## Free usage
+Free availability is reported as unknown because NVIDIA credits/access can vary.
+
+## Quota and rate metadata
+Runtime provider failures are normalized; no proactive quota scheduler is implemented.
+
+## Known limitations
+The hosted catalog spans multiple task types and may expose sparse capability metadata.
+
+## Disconnect
+Use **Providers → Disconnect** after removing this connection from all Routes.

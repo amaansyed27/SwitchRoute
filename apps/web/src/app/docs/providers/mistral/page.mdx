@@ -1,0 +1,22 @@
+# Mistral AI
+
+## Credential
+Get an API key from **Mistral La Plateforme → API keys**. The key is validated by the gateway and encrypted before persistence.
+
+## Validation
+SwitchRoute calls `GET https://api.mistral.ai/v1/models` with bearer authentication.
+
+## Model discovery
+Chat-capable records are normalized and obvious non-chat families are filtered. Provider-returned capability fields are preserved where available.
+
+## Free usage
+Free availability is reported as unknown.
+
+## Quota and rate metadata
+Runtime failures are normalized. Quota-aware routing is not part of Slice 1.8.
+
+## Known limitations
+Missing pricing/context/capability values remain `unknown` rather than curated guesses.
+
+## Disconnect
+Use **Providers → Disconnect** after removing this connection from all Routes.
