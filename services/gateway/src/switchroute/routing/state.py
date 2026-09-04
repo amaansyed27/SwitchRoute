@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import time
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -7,10 +8,6 @@ from uuid import uuid4
 from switchroute.domain import Candidate
 from switchroute.health.circuit_breaker import CircuitBreaker, CircuitState, HealthSnapshot, ewma
 from switchroute.quota.models import QuotaMetric, QuotaObservation, QuotaSnapshot
-
-
-class RoutingStateUnavailable(RuntimeError):
-    pass
 
 
 @dataclass(slots=True)
@@ -87,7 +84,7 @@ class MemoryRoutingState:
         async with self._lock:
             state = self._targets.setdefault(key, TargetState())
             self._breaker.before_probe(state.health)
-            return _copy_state(state)
+            return copy.deepcopy(state)
 
     def _cleanup(self, now: float) -> None:
         expired = [rid for rid, item in self._reservations.items() if item.reservation.expires_at <= now]
@@ -125,6 +122,8 @@ class MemoryRoutingState:
             if state.health.circuit_state is CircuitState.OPEN:
                 return None
             reserved_requests, reserved_tokens = self._reserved_for(key)
+            if state.health.circuit_state is CircuitState.HALF_OPEN and reserved_requests:
+                return None
             for metric in (state.quota.rpm, state.quota.rpd):
                 if metric.remaining is not None and metric.remaining - reserved_requests < 1:
                     return None
@@ -150,8 +149,6 @@ class MemoryRoutingState:
                 expires_at=now + ttl_seconds,
             )
             self._reservations[reservation.id] = _ReservationState(reservation)
-            if state.health.circuit_state is CircuitState.HALF_OPEN:
-                state.health.retry_at = None
             return reservation
 
     async def reconcile(
@@ -246,14 +243,3 @@ class UnavailableRoutingState:
 
     async def observe_failure(self, key: str, error_category: str) -> None:
         return None
-
-
-def _copy_state(state: TargetState) -> TargetState:
-    quota = QuotaSnapshot(
-        **{
-            name: QuotaMetric(**vars(getattr(state.quota, name)))
-            for name in ("rpm", "tpm", "rpd", "tpd", "concurrency")
-        }
-    )
-    health = HealthSnapshot(**vars(state.health))
-    return TargetState(quota=quota, health=health)
