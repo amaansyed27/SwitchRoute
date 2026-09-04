@@ -5,6 +5,14 @@ from typing import Literal
 QuotaSource = Literal["exact", "observed", "estimated", "catalog", "unknown"]
 QuotaMetricName = Literal["rpm", "tpm", "rpd", "tpd", "concurrency"]
 
+_SOURCE_RANK: dict[QuotaSource, int] = {
+    "exact": 5,
+    "observed": 4,
+    "estimated": 3,
+    "catalog": 2,
+    "unknown": 1,
+}
+
 
 def utc_now_iso() -> str:
     return datetime.now(UTC).isoformat()
@@ -54,16 +62,27 @@ class QuotaSnapshot:
         return any(metric.known for metric in self.metrics())
 
     def usable_ratio(self) -> float | None:
-        ratios = [metric.ratio() for metric in self.metrics() if metric.ratio() is not None]
+        ratios: list[float] = []
+        for metric in self.metrics():
+            ratio = metric.ratio()
+            if ratio is not None:
+                ratios.append(ratio)
         return min(ratios) if ratios else None
 
     def strongest_source(self) -> QuotaSource:
-        rank = {"exact": 5, "observed": 4, "estimated": 3, "catalog": 2, "unknown": 1}
-        sources = [metric.source for metric in self.metrics() if metric.known]
-        return max(sources, key=lambda source: rank[source], default="unknown")
+        sources: list[QuotaSource] = [
+            metric.source for metric in self.metrics() if metric.known
+        ]
+        if not sources:
+            return "unknown"
+        return max(sources, key=_SOURCE_RANK.__getitem__)
 
     def confidence(self) -> float | None:
-        values = [metric.confidence for metric in self.metrics() if metric.confidence is not None]
+        values: list[float] = [
+            metric.confidence
+            for metric in self.metrics()
+            if metric.confidence is not None
+        ]
         return min(values) if values else None
 
 
