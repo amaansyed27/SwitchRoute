@@ -108,61 +108,60 @@ class RedisRoutingState:
             f"switchroute:lock:target:{key}", timeout=5, blocking_timeout=2
         )
         try:
-            async with route_lock:
-                async with target_lock:
-                    state = await self._load(key)
-                    self._breaker.before_probe(state.health)
-                    if state.health.circuit_state is CircuitState.OPEN:
+            async with route_lock, target_lock:
+                state = await self._load(key)
+                self._breaker.before_probe(state.health)
+                if state.health.circuit_state is CircuitState.OPEN:
+                    return None
+                target_zset = self._target_res(key)
+                target_tokens = self._target_tokens(key)
+                route_zset = self._route_res(route_key)
+                route_costs = self._route_costs(route_key)
+                await self._cleanup(target_zset, target_tokens, now)
+                await self._cleanup(route_zset, route_costs, now)
+                reserved_requests, reserved_tokens = await self._active_sum(
+                    target_zset, target_tokens
+                )
+                if state.health.circuit_state is CircuitState.HALF_OPEN and reserved_requests:
+                    return None
+                for metric in (state.quota.rpm, state.quota.rpd):
+                    if metric.remaining is not None and metric.remaining - reserved_requests < 1:
                         return None
-                    target_zset = self._target_res(key)
-                    target_tokens = self._target_tokens(key)
-                    route_zset = self._route_res(route_key)
-                    route_costs = self._route_costs(route_key)
-                    await self._cleanup(target_zset, target_tokens, now)
-                    await self._cleanup(route_zset, route_costs, now)
-                    reserved_requests, reserved_tokens = await self._active_sum(
-                        target_zset, target_tokens
-                    )
-                    if state.health.circuit_state is CircuitState.HALF_OPEN and reserved_requests:
+                for metric in (state.quota.tpm, state.quota.tpd):
+                    if metric.remaining is not None and metric.remaining - reserved_tokens < expected_tokens:
                         return None
-                    for metric in (state.quota.rpm, state.quota.rpd):
-                        if metric.remaining is not None and metric.remaining - reserved_requests < 1:
-                            return None
-                    for metric in (state.quota.tpm, state.quota.tpd):
-                        if metric.remaining is not None and metric.remaining - reserved_tokens < expected_tokens:
-                            return None
-                    concurrency = state.quota.concurrency
-                    if concurrency.remaining is not None and concurrency.remaining - reserved_requests < 1:
+                concurrency = state.quota.concurrency
+                if concurrency.remaining is not None and concurrency.remaining - reserved_requests < 1:
+                    return None
+                if paid and daily_paid_cap_microusd is not None:
+                    if expected_cost_microusd is None:
                         return None
-                    if paid and daily_paid_cap_microusd is not None:
-                        if expected_cost_microusd is None:
-                            return None
-                        _, reserved_cost = await self._active_sum(route_zset, route_costs)
-                        hot_spend = int(await self._redis.get(self._spend_key(route_key)) or 0)
-                        committed = max(hot_spend, durable_paid_spend_microusd)
-                        if committed + reserved_cost + expected_cost_microusd > daily_paid_cap_microusd:
-                            return None
-                    expires = now + ttl_seconds
-                    pipe = self._redis.pipeline(transaction=True)
-                    pipe.zadd(target_zset, {rid: expires})
-                    pipe.hset(target_tokens, rid, expected_tokens)
-                    pipe.expire(target_zset, ttl_seconds * 3)
-                    pipe.expire(target_tokens, ttl_seconds * 3)
-                    if paid:
-                        pipe.zadd(route_zset, {rid: expires})
-                        pipe.hset(route_costs, rid, expected_cost_microusd or 0)
-                        pipe.expire(route_zset, 172800)
-                        pipe.expire(route_costs, 172800)
-                    await pipe.execute()
-                    return CapacityReservation(
-                        id=rid,
-                        target_key=key,
-                        route_key=route_key,
-                        expected_tokens=expected_tokens,
-                        expected_cost_microusd=expected_cost_microusd,
-                        paid=paid,
-                        expires_at=expires,
-                    )
+                    _, reserved_cost = await self._active_sum(route_zset, route_costs)
+                    hot_spend = int(await self._redis.get(self._spend_key(route_key)) or 0)
+                    committed = max(hot_spend, durable_paid_spend_microusd)
+                    if committed + reserved_cost + expected_cost_microusd > daily_paid_cap_microusd:
+                        return None
+                expires = now + ttl_seconds
+                pipe = self._redis.pipeline(transaction=True)
+                pipe.zadd(target_zset, {rid: expires})
+                pipe.hset(target_tokens, rid, expected_tokens)
+                pipe.expire(target_zset, ttl_seconds * 3)
+                pipe.expire(target_tokens, ttl_seconds * 3)
+                if paid:
+                    pipe.zadd(route_zset, {rid: expires})
+                    pipe.hset(route_costs, rid, expected_cost_microusd or 0)
+                    pipe.expire(route_zset, 172800)
+                    pipe.expire(route_costs, 172800)
+                await pipe.execute()
+                return CapacityReservation(
+                    id=rid,
+                    target_key=key,
+                    route_key=route_key,
+                    expected_tokens=expected_tokens,
+                    expected_cost_microusd=expected_cost_microusd,
+                    paid=paid,
+                    expires_at=expires,
+                )
         except RedisError as exc:
             self.available = False
             raise RuntimeError("Redis routing state is unavailable") from exc
@@ -182,42 +181,41 @@ class RedisRoutingState:
             route_lock = self._redis.lock(
                 f"switchroute:lock:route:{reservation.route_key}", timeout=5, blocking_timeout=2
             )
-            async with route_lock:
-                async with target_lock:
-                    state = await self._load(reservation.target_key)
+            async with route_lock, target_lock:
+                state = await self._load(reservation.target_key)
+                if attempted:
+                    used_tokens = (
+                        actual_tokens
+                        if actual_tokens is not None
+                        else reservation.expected_tokens
+                    )
+                    for metric in (
+                        state.quota.rpm,
+                        state.quota.rpd,
+                        state.quota.concurrency,
+                    ):
+                        if metric.remaining is not None:
+                            metric.remaining = max(0, metric.remaining - 1)
+                    for metric in (state.quota.tpm, state.quota.tpd):
+                        if metric.remaining is not None:
+                            metric.remaining = max(0, metric.remaining - used_tokens)
+                    await self._save(reservation.target_key, state)
+                pipe = self._redis.pipeline(transaction=True)
+                pipe.zrem(self._target_res(reservation.target_key), reservation.id)
+                pipe.hdel(self._target_tokens(reservation.target_key), reservation.id)
+                if reservation.paid:
+                    pipe.zrem(self._route_res(reservation.route_key), reservation.id)
+                    pipe.hdel(self._route_costs(reservation.route_key), reservation.id)
                     if attempted:
-                        used_tokens = (
-                            actual_tokens
-                            if actual_tokens is not None
-                            else reservation.expected_tokens
+                        cost = (
+                            actual_cost_microusd
+                            if actual_cost_microusd is not None
+                            else reservation.expected_cost_microusd
                         )
-                        for metric in (
-                            state.quota.rpm,
-                            state.quota.rpd,
-                            state.quota.concurrency,
-                        ):
-                            if metric.remaining is not None:
-                                metric.remaining = max(0, metric.remaining - 1)
-                        for metric in (state.quota.tpm, state.quota.tpd):
-                            if metric.remaining is not None:
-                                metric.remaining = max(0, metric.remaining - used_tokens)
-                        await self._save(reservation.target_key, state)
-                    pipe = self._redis.pipeline(transaction=True)
-                    pipe.zrem(self._target_res(reservation.target_key), reservation.id)
-                    pipe.hdel(self._target_tokens(reservation.target_key), reservation.id)
-                    if reservation.paid:
-                        pipe.zrem(self._route_res(reservation.route_key), reservation.id)
-                        pipe.hdel(self._route_costs(reservation.route_key), reservation.id)
-                        if attempted:
-                            cost = (
-                                actual_cost_microusd
-                                if actual_cost_microusd is not None
-                                else reservation.expected_cost_microusd
-                            )
-                            if cost is not None:
-                                pipe.incrby(self._spend_key(reservation.route_key), cost)
-                                pipe.expire(self._spend_key(reservation.route_key), 172800)
-                    await pipe.execute()
+                        if cost is not None:
+                            pipe.incrby(self._spend_key(reservation.route_key), cost)
+                            pipe.expire(self._spend_key(reservation.route_key), 172800)
+                await pipe.execute()
         except RedisError:
             self.available = False
 
