@@ -33,7 +33,7 @@ from switchroute.services import Services
 class RouteOrchestrator:
     def __init__(self, services: Services) -> None:
         self.services = services
-        self.state: RoutingState = services.routing_state or MemoryRoutingState()
+        self.state: RoutingState = getattr(services, "routing_state", None) or MemoryRoutingState()
         self.planner = RoutingPlanner(self.state, services.repository)
         self.activity = RoutingActivity(services.repository)
 
