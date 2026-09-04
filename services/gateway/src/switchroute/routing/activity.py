@@ -29,6 +29,7 @@ class RoutingActivity:
                 "provider": selected.candidate.provider_kind,
                 "model": selected.candidate.model_id,
                 "reason": reason,
+                "paid": selected.paid,
             },
             "fallback_count": fallback_count,
             "path": path[-8:],
@@ -39,6 +40,7 @@ class RoutingActivity:
             "quota": {
                 "source": quota.strongest_source(),
                 "confidence": quota.confidence(),
+                "confirmed_free_capacity": quota.has_confirmed_free_capacity,
             },
             "circuit_state": health.circuit_state.value,
             "latency_confidence": health.latency_confidence,
@@ -79,6 +81,7 @@ class RoutingActivity:
                 error_category=error_category,
                 estimated_cost_microusd=estimated_cost,
                 ttft_ms=ttft_ms,
+                paid_routing=item.paid,
                 routing_decision=decision,
             )
         )
