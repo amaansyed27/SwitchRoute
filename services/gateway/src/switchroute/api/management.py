@@ -73,6 +73,22 @@ async def _routes(request: Request, workspace_id: UUID) -> list[dict[str, Any]]:
     return routes
 
 
+def _routing_attention(routes: list[dict[str, Any]]) -> int:
+    attention = 0
+    for route in routes:
+        for target in route.get("targets", []):
+            runtime = target.get("routing_state") or {}
+            health = runtime.get("health") or {}
+            quota = runtime.get("quota") or {}
+            exhausted = any(
+                isinstance(metric, dict) and metric.get("remaining") == 0
+                for metric in quota.values()
+            )
+            if health.get("circuit_state") in {"open", "half_open"} or exhausted:
+                attention += 1
+    return attention
+
+
 @router.get("/provider-catalog")
 async def provider_catalog(request: Request, _: WorkspaceContext = Depends(workspace_context)):
     return request.app.state.services.providers.public_catalog()
@@ -239,7 +255,9 @@ async def activity(request: Request, limit: int = 50, ctx: WorkspaceContext = De
 async def dashboard(request: Request, ctx: WorkspaceContext = Depends(workspace_context)):
     services = request.app.state.services
     summary = await services.repository.dashboard(ctx.workspace_id)
+    routes = await _routes(request, ctx.workspace_id)
     summary["recent_activity"] = await services.repository.activity(ctx.workspace_id, 8)
     summary["providers"] = await services.repository.list_providers(ctx.workspace_id)
     summary["routing_state_available"] = services.routing_state.available
+    summary["routing_attention_targets"] = _routing_attention(routes)
     return summary
