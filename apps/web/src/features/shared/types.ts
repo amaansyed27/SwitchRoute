@@ -5,6 +5,7 @@ export type MetadataProvenance = "provider" | "litellm" | "curated" | "unknown";
 export type RouteStrategy = "priority" | "free_first" | "quota_aware" | "fastest" | "cheapest" | "balanced";
 export type PaidFallback = "never" | "after_free" | "allowed";
 export type QuotaSource = "exact" | "observed" | "estimated" | "catalog" | "unknown";
+export type QuotaCapacity = "free" | "account" | "unknown";
 
 export type ProviderCatalogEntry = {
   id: string;
@@ -58,6 +59,7 @@ export type QuotaMetric = {
   reset_at?: string | null;
   window_seconds?: number | null;
   source: QuotaSource;
+  capacity: QuotaCapacity;
   confidence?: number | null;
 };
 
@@ -113,11 +115,11 @@ export type RoutingDecision = {
   strategy?: RouteStrategy;
   effective_strategy?: RouteStrategy | "priority";
   degraded_reason?: string | null;
-  selected?: { provider?: string; model?: string; reason?: string };
+  selected?: { provider?: string; model?: string; reason?: string; paid?: boolean };
   fallback_count?: number;
   path?: Array<{ provider: string; model: string; outcome: string }>;
   excluded?: Array<{ provider: string; model: string; reason: string }>;
-  quota?: { source?: QuotaSource; confidence?: number | null };
+  quota?: { source?: QuotaSource; confidence?: number | null; confirmed_free_capacity?: boolean };
   circuit_state?: string;
   latency_confidence?: string;
 };
@@ -133,6 +135,7 @@ export type ActivityRecord = {
   latency_ms: number;
   ttft_ms?: number | null;
   estimated_cost_microusd?: number | null;
+  paid_routing?: boolean;
   status: "success" | "error";
   fallback_count: number;
   error_category?: string | null;
