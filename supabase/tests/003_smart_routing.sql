@@ -1,11 +1,12 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(8);
+select plan(9);
 
 select has_column('public', 'routes', 'paid_fallback', 'routes has paid fallback policy');
 select has_column('public', 'routes', 'daily_paid_cap_microusd', 'routes has daily paid cap');
 select has_column('public', 'request_usage', 'ttft_ms', 'usage stores TTFT separately');
 select has_column('public', 'request_usage', 'routing_decision', 'usage stores sanitized routing decisions');
+select has_column('public', 'request_usage', 'paid_routing', 'usage distinguishes paid routing');
 select col_is_null('public', 'routes', 'daily_paid_cap_microusd', 'daily paid cap is optional');
 
 set local session_replication_role = replica;
