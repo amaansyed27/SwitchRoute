@@ -68,9 +68,12 @@ class CircuitBreaker:
 
     def before_probe(self, snapshot: HealthSnapshot, now: datetime | None = None) -> HealthSnapshot:
         current = now or datetime.now(UTC)
-        if snapshot.circuit_state is CircuitState.OPEN and snapshot.retry_at:
-            if current >= datetime.fromisoformat(snapshot.retry_at):
-                snapshot.circuit_state = CircuitState.HALF_OPEN
+        if (
+            snapshot.circuit_state is CircuitState.OPEN
+            and snapshot.retry_at
+            and current >= datetime.fromisoformat(snapshot.retry_at)
+        ):
+            snapshot.circuit_state = CircuitState.HALF_OPEN
         return snapshot
 
 
