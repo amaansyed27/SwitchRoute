@@ -84,7 +84,10 @@ class RedisRoutingState:
         active = await self._redis.zrange(zset, 0, -1)
         if not active:
             return 0, 0
-        values = [await self._redis.hget(hash_key, member) for member in active]
+        pipe = self._redis.pipeline(transaction=False)
+        for member in active:
+            pipe.hget(hash_key, member)
+        values = await pipe.execute()
         return len(active), sum(int(value or 0) for value in values)
 
     async def reserve(
