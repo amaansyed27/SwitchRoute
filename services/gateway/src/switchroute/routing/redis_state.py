@@ -84,7 +84,7 @@ class RedisRoutingState:
         active = await self._redis.zrange(zset, 0, -1)
         if not active:
             return 0, 0
-        values = await self._redis.hmget(hash_key, active)
+        values = [await self._redis.hget(hash_key, member) for member in active]
         return len(active), sum(int(value or 0) for value in values)
 
     async def reserve(
@@ -144,12 +144,12 @@ class RedisRoutingState:
                 expires = now + ttl_seconds
                 pipe = self._redis.pipeline(transaction=True)
                 pipe.zadd(target_zset, {rid: expires})
-                pipe.hset(target_tokens, rid, expected_tokens)
+                pipe.hset(target_tokens, rid, str(expected_tokens))
                 pipe.expire(target_zset, ttl_seconds * 3)
                 pipe.expire(target_tokens, ttl_seconds * 3)
                 if paid:
                     pipe.zadd(route_zset, {rid: expires})
-                    pipe.hset(route_costs, rid, expected_cost_microusd or 0)
+                    pipe.hset(route_costs, rid, str(expected_cost_microusd or 0))
                     pipe.expire(route_zset, 172800)
                     pipe.expire(route_costs, 172800)
                 await pipe.execute()
