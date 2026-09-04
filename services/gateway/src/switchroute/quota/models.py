@@ -4,6 +4,7 @@ from typing import Literal
 
 QuotaSource = Literal["exact", "observed", "estimated", "catalog", "unknown"]
 QuotaMetricName = Literal["rpm", "tpm", "rpd", "tpd", "concurrency"]
+QuotaCapacity = Literal["free", "account", "unknown"]
 
 _SOURCE_RANK: dict[QuotaSource, int] = {
     "exact": 5,
@@ -25,6 +26,7 @@ class QuotaMetric:
     reset_at: str | None = None
     window_seconds: int | None = None
     source: QuotaSource = "unknown"
+    capacity: QuotaCapacity = "unknown"
     observed_at: str = field(default_factory=utc_now_iso)
     confidence: float | None = None
 
@@ -35,6 +37,10 @@ class QuotaMetric:
     @property
     def exhausted(self) -> bool:
         return self.remaining is not None and self.remaining <= 0
+
+    @property
+    def confirmed_free_available(self) -> bool:
+        return self.capacity == "free" and self.known and not self.exhausted
 
     def ratio(self) -> float | None:
         if self.remaining is None or self.limit is None or self.limit <= 0:
@@ -60,6 +66,10 @@ class QuotaSnapshot:
     @property
     def has_known_capacity(self) -> bool:
         return any(metric.known for metric in self.metrics())
+
+    @property
+    def has_confirmed_free_capacity(self) -> bool:
+        return any(metric.confirmed_free_available for metric in self.metrics())
 
     def usable_ratio(self) -> float | None:
         ratios: list[float] = []
@@ -94,4 +104,5 @@ class QuotaObservation:
     reset_at: str | None = None
     window_seconds: int | None = None
     source: QuotaSource = "observed"
+    capacity: QuotaCapacity = "unknown"
     confidence: float = 0.9
