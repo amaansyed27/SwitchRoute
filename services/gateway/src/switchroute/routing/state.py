@@ -87,12 +87,20 @@ class MemoryRoutingState:
             return copy.deepcopy(state)
 
     def _cleanup(self, now: float) -> None:
-        expired = [rid for rid, item in self._reservations.items() if item.reservation.expires_at <= now]
+        expired = [
+            rid
+            for rid, item in self._reservations.items()
+            if item.reservation.expires_at <= now
+        ]
         for rid in expired:
             self._reservations.pop(rid, None)
 
     def _reserved_for(self, key: str) -> tuple[int, int]:
-        items = [item.reservation for item in self._reservations.values() if item.reservation.target_key == key]
+        items = [
+            item.reservation
+            for item in self._reservations.values()
+            if item.reservation.target_key == key
+        ]
         return len(items), sum(item.expected_tokens for item in items)
 
     def _reserved_budget(self, route_key: str) -> int:
@@ -136,8 +144,13 @@ class MemoryRoutingState:
             if paid and daily_paid_cap_microusd is not None:
                 if expected_cost_microusd is None:
                     return None
-                spend = max(durable_paid_spend_microusd, self._paid_spend.get(route_key, 0))
-                if spend + self._reserved_budget(route_key) + expected_cost_microusd > daily_paid_cap_microusd:
+                spend = max(
+                    durable_paid_spend_microusd, self._paid_spend.get(route_key, 0)
+                )
+                if (
+                    spend + self._reserved_budget(route_key) + expected_cost_microusd
+                    > daily_paid_cap_microusd
+                ):
                     return None
             reservation = CapacityReservation(
                 id=uuid4().hex,
@@ -164,7 +177,11 @@ class MemoryRoutingState:
             if not attempted:
                 return
             state = self._targets.setdefault(reservation.target_key, TargetState())
-            used_tokens = actual_tokens if actual_tokens is not None else reservation.expected_tokens
+            used_tokens = (
+                actual_tokens
+                if actual_tokens is not None
+                else reservation.expected_tokens
+            )
             for metric in (state.quota.rpm, state.quota.rpd, state.quota.concurrency):
                 if metric.remaining is not None:
                     metric.remaining = max(0, metric.remaining - 1)
@@ -176,9 +193,13 @@ class MemoryRoutingState:
                 if cost is None:
                     cost = reservation.expected_cost_microusd
                 if cost is not None:
-                    self._paid_spend[reservation.route_key] = self._paid_spend.get(reservation.route_key, 0) + cost
+                    self._paid_spend[reservation.route_key] = (
+                        self._paid_spend.get(reservation.route_key, 0) + cost
+                    )
 
-    async def observe_quota(self, key: str, observations: list[QuotaObservation]) -> None:
+    async def observe_quota(
+        self, key: str, observations: list[QuotaObservation]
+    ) -> None:
         async with self._lock:
             state = self._targets.setdefault(key, TargetState())
             for observation in observations:
@@ -191,18 +212,25 @@ class MemoryRoutingState:
                         reset_at=observation.reset_at,
                         window_seconds=observation.window_seconds,
                         source=observation.source,
+                        capacity=observation.capacity,
                         confidence=observation.confidence,
                     ),
                 )
 
-    async def observe_success(self, key: str, latency_ms: int, ttft_ms: int | None = None) -> None:
+    async def observe_success(
+        self, key: str, latency_ms: int, ttft_ms: int | None = None
+    ) -> None:
         async with self._lock:
             state = self._targets.setdefault(key, TargetState())
             self._breaker.after_success(state.health)
-            state.health.latency_ewma_ms = ewma(state.health.latency_ewma_ms, float(latency_ms))
+            state.health.latency_ewma_ms = ewma(
+                state.health.latency_ewma_ms, float(latency_ms)
+            )
             state.health.latency_samples += 1
             if ttft_ms is not None:
-                state.health.ttft_ewma_ms = ewma(state.health.ttft_ewma_ms, float(ttft_ms))
+                state.health.ttft_ewma_ms = ewma(
+                    state.health.ttft_ewma_ms, float(ttft_ms)
+                )
                 state.health.ttft_samples += 1
 
     async def observe_failure(self, key: str, error_category: str) -> None:
@@ -232,13 +260,19 @@ class UnavailableRoutingState:
             tracked=False,
         )
 
-    async def reconcile(self, reservation: CapacityReservation, **kwargs) -> None:  # type: ignore[no-untyped-def]
+    async def reconcile(
+        self, reservation: CapacityReservation, **kwargs
+    ) -> None:  # type: ignore[no-untyped-def]
         return None
 
-    async def observe_quota(self, key: str, observations: list[QuotaObservation]) -> None:
+    async def observe_quota(
+        self, key: str, observations: list[QuotaObservation]
+    ) -> None:
         return None
 
-    async def observe_success(self, key: str, latency_ms: int, ttft_ms: int | None = None) -> None:
+    async def observe_success(
+        self, key: str, latency_ms: int, ttft_ms: int | None = None
+    ) -> None:
         return None
 
     async def observe_failure(self, key: str, error_category: str) -> None:
