@@ -1,4 +1,6 @@
 from collections.abc import Callable
+from typing import Protocol
+from uuid import UUID
 
 from switchroute.budget.cost import cost_microusd, estimate_request_tokens
 from switchroute.budget.policy import BudgetPolicy, is_free_candidate, paid_policy_reason
@@ -9,7 +11,6 @@ from switchroute.routing.context import ExcludedCandidate, PlanCandidate, Routin
 from switchroute.routing.requirements import capability_reason, infer_requirements
 from switchroute.routing.state import RoutingState, TargetState, target_key
 from switchroute.routing.strategies import balanced, cheapest, fastest, free_first, priority, quota_aware
-from switchroute.storage.contracts import Repository
 
 StrategyFn = Callable[[list[PlanCandidate]], list[PlanCandidate]]
 STRATEGIES: dict[str, StrategyFn] = {
@@ -22,8 +23,12 @@ STRATEGIES: dict[str, StrategyFn] = {
 }
 
 
+class PaidSpendRepository(Protocol):
+    async def paid_spend_today(self, workspace_id: UUID, route_id: UUID) -> int: ...
+
+
 class RoutingPlanner:
-    def __init__(self, state: RoutingState, repository: Repository) -> None:
+    def __init__(self, state: RoutingState, repository: PaidSpendRepository) -> None:
         self.state = state
         self.repository = repository
 
