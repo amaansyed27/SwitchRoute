@@ -63,4 +63,5 @@ class UsageRecord:
     error_category: str | None = None
     estimated_cost_microusd: int | None = None
     ttft_ms: int | None = None
+    paid_routing: bool = False
     routing_decision: dict[str, Any] = field(default_factory=dict)
