@@ -2,13 +2,19 @@ import json
 import time
 from dataclasses import asdict
 from datetime import UTC, datetime
+from uuid import uuid4
 
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
 from switchroute.health.circuit_breaker import CircuitBreaker, CircuitState, HealthSnapshot, ewma
 from switchroute.quota.models import QuotaMetric, QuotaObservation, QuotaSnapshot
-from switchroute.routing.state import CapacityReservation, RoutingState, TargetState, UnavailableRoutingState
+from switchroute.routing.state import (
+    CapacityReservation,
+    RoutingState,
+    TargetState,
+    UnavailableRoutingState,
+)
 
 
 class RedisRoutingState:
@@ -93,12 +99,14 @@ class RedisRoutingState:
         durable_paid_spend_microusd: int,
         ttl_seconds: int = 120,
     ) -> CapacityReservation | None:
-        from uuid import uuid4
-
         now = time.time()
         rid = uuid4().hex
-        route_lock = self._redis.lock(f"switchroute:lock:route:{route_key}", timeout=5, blocking_timeout=2)
-        target_lock = self._redis.lock(f"switchroute:lock:target:{key}", timeout=5, blocking_timeout=2)
+        route_lock = self._redis.lock(
+            f"switchroute:lock:route:{route_key}", timeout=5, blocking_timeout=2
+        )
+        target_lock = self._redis.lock(
+            f"switchroute:lock:target:{key}", timeout=5, blocking_timeout=2
+        )
         try:
             async with route_lock:
                 async with target_lock:
@@ -112,21 +120,27 @@ class RedisRoutingState:
                     route_costs = self._route_costs(route_key)
                     await self._cleanup(target_zset, target_tokens, now)
                     await self._cleanup(route_zset, route_costs, now)
-                    reserved_requests, reserved_tokens = await self._active_sum(target_zset, target_tokens)
+                    reserved_requests, reserved_tokens = await self._active_sum(
+                        target_zset, target_tokens
+                    )
+                    if state.health.circuit_state is CircuitState.HALF_OPEN and reserved_requests:
+                        return None
                     for metric in (state.quota.rpm, state.quota.rpd):
                         if metric.remaining is not None and metric.remaining - reserved_requests < 1:
                             return None
                     for metric in (state.quota.tpm, state.quota.tpd):
                         if metric.remaining is not None and metric.remaining - reserved_tokens < expected_tokens:
                             return None
-                    if state.quota.concurrency.remaining is not None and state.quota.concurrency.remaining - reserved_requests < 1:
+                    concurrency = state.quota.concurrency
+                    if concurrency.remaining is not None and concurrency.remaining - reserved_requests < 1:
                         return None
                     if paid and daily_paid_cap_microusd is not None:
                         if expected_cost_microusd is None:
                             return None
                         _, reserved_cost = await self._active_sum(route_zset, route_costs)
                         hot_spend = int(await self._redis.get(self._spend_key(route_key)) or 0)
-                        if max(hot_spend, durable_paid_spend_microusd) + reserved_cost + expected_cost_microusd > daily_paid_cap_microusd:
+                        committed = max(hot_spend, durable_paid_spend_microusd)
+                        if committed + reserved_cost + expected_cost_microusd > daily_paid_cap_microusd:
                             return None
                     expires = now + ttl_seconds
                     pipe = self._redis.pipeline(transaction=True)
@@ -162,18 +176,48 @@ class RedisRoutingState:
         actual_cost_microusd: int | None,
     ) -> None:
         try:
-            pipe = self._redis.pipeline(transaction=True)
-            pipe.zrem(self._target_res(reservation.target_key), reservation.id)
-            pipe.hdel(self._target_tokens(reservation.target_key), reservation.id)
-            if reservation.paid:
-                pipe.zrem(self._route_res(reservation.route_key), reservation.id)
-                pipe.hdel(self._route_costs(reservation.route_key), reservation.id)
-                if attempted:
-                    cost = actual_cost_microusd if actual_cost_microusd is not None else reservation.expected_cost_microusd
-                    if cost is not None:
-                        pipe.incrby(self._spend_key(reservation.route_key), cost)
-                        pipe.expire(self._spend_key(reservation.route_key), 172800)
-            await pipe.execute()
+            target_lock = self._redis.lock(
+                f"switchroute:lock:target:{reservation.target_key}", timeout=5, blocking_timeout=2
+            )
+            route_lock = self._redis.lock(
+                f"switchroute:lock:route:{reservation.route_key}", timeout=5, blocking_timeout=2
+            )
+            async with route_lock:
+                async with target_lock:
+                    state = await self._load(reservation.target_key)
+                    if attempted:
+                        used_tokens = (
+                            actual_tokens
+                            if actual_tokens is not None
+                            else reservation.expected_tokens
+                        )
+                        for metric in (
+                            state.quota.rpm,
+                            state.quota.rpd,
+                            state.quota.concurrency,
+                        ):
+                            if metric.remaining is not None:
+                                metric.remaining = max(0, metric.remaining - 1)
+                        for metric in (state.quota.tpm, state.quota.tpd):
+                            if metric.remaining is not None:
+                                metric.remaining = max(0, metric.remaining - used_tokens)
+                        await self._save(reservation.target_key, state)
+                    pipe = self._redis.pipeline(transaction=True)
+                    pipe.zrem(self._target_res(reservation.target_key), reservation.id)
+                    pipe.hdel(self._target_tokens(reservation.target_key), reservation.id)
+                    if reservation.paid:
+                        pipe.zrem(self._route_res(reservation.route_key), reservation.id)
+                        pipe.hdel(self._route_costs(reservation.route_key), reservation.id)
+                        if attempted:
+                            cost = (
+                                actual_cost_microusd
+                                if actual_cost_microusd is not None
+                                else reservation.expected_cost_microusd
+                            )
+                            if cost is not None:
+                                pipe.incrby(self._spend_key(reservation.route_key), cost)
+                                pipe.expire(self._spend_key(reservation.route_key), 172800)
+                    await pipe.execute()
         except RedisError:
             self.available = False
 
@@ -181,7 +225,9 @@ class RedisRoutingState:
         if not observations:
             return
         try:
-            async with self._redis.lock(f"switchroute:lock:target:{key}", timeout=5, blocking_timeout=2):
+            async with self._redis.lock(
+                f"switchroute:lock:target:{key}", timeout=5, blocking_timeout=2
+            ):
                 state = await self._load(key)
                 for observation in observations:
                     setattr(
@@ -202,13 +248,19 @@ class RedisRoutingState:
 
     async def observe_success(self, key: str, latency_ms: int, ttft_ms: int | None = None) -> None:
         try:
-            async with self._redis.lock(f"switchroute:lock:target:{key}", timeout=5, blocking_timeout=2):
+            async with self._redis.lock(
+                f"switchroute:lock:target:{key}", timeout=5, blocking_timeout=2
+            ):
                 state = await self._load(key)
                 self._breaker.after_success(state.health)
-                state.health.latency_ewma_ms = ewma(state.health.latency_ewma_ms, float(latency_ms))
+                state.health.latency_ewma_ms = ewma(
+                    state.health.latency_ewma_ms, float(latency_ms)
+                )
                 state.health.latency_samples += 1
                 if ttft_ms is not None:
-                    state.health.ttft_ewma_ms = ewma(state.health.ttft_ewma_ms, float(ttft_ms))
+                    state.health.ttft_ewma_ms = ewma(
+                        state.health.ttft_ewma_ms, float(ttft_ms)
+                    )
                     state.health.ttft_samples += 1
                 await self._save(key, state)
         except RedisError:
@@ -216,7 +268,9 @@ class RedisRoutingState:
 
     async def observe_failure(self, key: str, error_category: str) -> None:
         try:
-            async with self._redis.lock(f"switchroute:lock:target:{key}", timeout=5, blocking_timeout=2):
+            async with self._redis.lock(
+                f"switchroute:lock:target:{key}", timeout=5, blocking_timeout=2
+            ):
                 state = await self._load(key)
                 self._breaker.after_failure(state.health, error_category)
                 await self._save(key, state)
@@ -229,7 +283,12 @@ async def create_routing_state(redis_url: str | None) -> RoutingState:
         from switchroute.routing.state import MemoryRoutingState
 
         return MemoryRoutingState()
-    client = Redis.from_url(redis_url, decode_responses=True, socket_connect_timeout=1, socket_timeout=2)
+    client = Redis.from_url(
+        redis_url,
+        decode_responses=True,
+        socket_connect_timeout=1,
+        socket_timeout=2,
+    )
     try:
         await client.ping()
         return RedisRoutingState(client)
