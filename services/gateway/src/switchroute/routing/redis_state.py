@@ -240,6 +240,7 @@ class RedisRoutingState:
                             reset_at=observation.reset_at,
                             window_seconds=observation.window_seconds,
                             source=observation.source,
+                            capacity=observation.capacity,
                             confidence=observation.confidence,
                         ),
                     )
