@@ -56,6 +56,13 @@ jobs:
       - run: ruff check --config pyproject.toml src tests ../../scripts/export_openapi.py
       - run: pyright
       - run: pytest -q
+      - run: python ../../scripts/export_openapi.py --output packages/api-contract/openapi.generated.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openapi-generated
+          path: packages/api-contract/openapi.generated.json
+          if-no-files-found: error
+          retention-days: 1
       - run: python ../../scripts/export_openapi.py --check
       - run: python -c "import json; d=json.load(open('../../packages/api-contract/openapi.json')); assert '/v1/chat/completions' in d['paths']; assert '/v1/models' in d['paths']"
       - run: pip-audit --local
