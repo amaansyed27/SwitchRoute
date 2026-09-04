@@ -65,12 +65,6 @@ class RoutingPlanner:
                     ExcludedCandidate(candidate.provider_kind, candidate.model_id, reason)
                 )
                 continue
-            reason = paid_policy_reason(candidate, policy)
-            if reason:
-                excluded.append(
-                    ExcludedCandidate(candidate.provider_kind, candidate.model_id, reason)
-                )
-                continue
             try:
                 state = await self.state.snapshot(target_key(candidate))
             except RuntimeError:
@@ -95,8 +89,14 @@ class RoutingPlanner:
                     )
                 )
                 continue
+            reason = paid_policy_reason(candidate, policy, state.quota)
+            if reason:
+                excluded.append(
+                    ExcludedCandidate(candidate.provider_kind, candidate.model_id, reason)
+                )
+                continue
             expected_cost = cost_microusd(candidate, input_tokens, output_tokens)
-            paid = not is_free_candidate(candidate)
+            paid = not is_free_candidate(candidate, state.quota)
             if (
                 paid
                 and context.daily_paid_cap_microusd is not None
