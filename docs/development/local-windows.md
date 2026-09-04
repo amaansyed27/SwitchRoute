@@ -1,6 +1,6 @@
 # Local development on Windows
 
-Use PowerShell from the repository root. Normal product testing uses a hosted Supabase project; Docker is only needed when deliberately running the database/RLS test stack locally.
+Use PowerShell from the repository root. Normal product testing uses a hosted Supabase project. Redis is optional for single-process development but should be enabled when testing Slice 2 distributed capacity/budget behavior. Docker is only otherwise needed when deliberately running the database/RLS test stack locally.
 
 ## 1. Configure hosted Supabase
 
@@ -39,7 +39,38 @@ py -3.12 -c "import secrets; print(secrets.token_urlsafe(48))"
 
 Use the first output as `SWITCHROUTE_SECRET_KEY` and the second as `SWITCHROUTE_KEY_PEPPER`. Never commit either env file.
 
-## 2. Install dependencies
+## 2. Choose routing-state mode
+
+### Simple single-process development
+
+Remove or comment `REDIS_URL` in `.env`. The gateway will explicitly use `MemoryRoutingState`. This is deterministic and convenient but does not provide cross-process atomicity.
+
+### Redis integration / production-like routing
+
+If Docker Desktop is available:
+
+```powershell
+docker rm -f switchroute-redis 2>$null
+docker run --name switchroute-redis -p 6379:6379 -d redis:7-alpine
+```
+
+Keep this in `.env`:
+
+```text
+REDIS_URL=redis://localhost:6379/0
+```
+
+Verify Redis:
+
+```powershell
+docker exec switchroute-redis redis-cli ping
+```
+
+Expected output: `PONG`.
+
+Production can use any standard managed Redis-compatible service by changing `REDIS_URL`; SwitchRoute routing code is not tied to a specific vendor. Do not expose Redis to browser code.
+
+## 3. Install dependencies
 
 ```powershell
 npm install
@@ -49,7 +80,7 @@ python -m pip install --upgrade pip
 pip install -e ".\services\gateway[dev]"
 ```
 
-## 3. Run the gateway
+## 4. Run the gateway
 
 With the Python virtual environment active:
 
@@ -59,7 +90,7 @@ python -m uvicorn switchroute.main:app --app-dir services/gateway/src --reload -
 
 Gateway: `http://localhost:8000`
 
-## 4. Run the web app
+## 5. Run the web app
 
 Open a second PowerShell window in the repository root:
 
@@ -70,6 +101,30 @@ npm run dev:web
 Web: `http://localhost:3000`
 
 Email magic-link auth works with hosted Supabase after the local URLs and token-hash email templates above are configured. GitHub and Google buttons additionally require those OAuth providers to be configured in the Supabase dashboard.
+
+## 6. Run Slice 2 checks
+
+With the venv active:
+
+```powershell
+ruff check --config services/gateway/pyproject.toml services/gateway/src services/gateway/tests scripts/export_openapi.py
+pyright --project services/gateway/pyproject.toml
+pytest -q services/gateway/tests
+python scripts/export_openapi.py --check
+npm run lint
+npm run typecheck
+npm run test:web
+npm run build:web
+npm run check:files
+```
+
+The Redis integration test reads `REDIS_TEST_URL`. When the Docker container above is running:
+
+```powershell
+$env:REDIS_TEST_URL = "redis://localhost:6379/15"
+pytest -q services/gateway/tests/test_redis_integration.py
+Remove-Item Env:REDIS_TEST_URL -ErrorAction SilentlyContinue
+```
 
 ## Optional: database/RLS tests locally
 
@@ -82,3 +137,9 @@ supabase stop
 ```
 
 It requires Docker and downloads the Supabase local stack.
+
+## Cleanup
+
+```powershell
+docker rm -f switchroute-redis 2>$null
+```
