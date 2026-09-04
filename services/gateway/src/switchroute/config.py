@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     switchroute_key_pepper: str | None = None
     web_origins: str = "http://localhost:3000"
     enable_test_provider: bool = False
+    redis_url: str | None = None
 
     @property
     def allowed_origins(self) -> list[str]:

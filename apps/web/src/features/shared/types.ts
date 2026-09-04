@@ -2,6 +2,9 @@ export type ProviderKind = string;
 export type ProviderCategory = "direct" | "inference" | "gateway";
 export type BillingTier = "free" | "free_capable" | "paid" | "unknown";
 export type MetadataProvenance = "provider" | "litellm" | "curated" | "unknown";
+export type RouteStrategy = "priority" | "free_first" | "quota_aware" | "fastest" | "cheapest" | "balanced";
+export type PaidFallback = "never" | "after_free" | "allowed";
+export type QuotaSource = "exact" | "observed" | "estimated" | "catalog" | "unknown";
 
 export type ProviderCatalogEntry = {
   id: string;
@@ -49,21 +52,46 @@ export type ProviderConnection = {
   created_at: string;
 };
 
+export type QuotaMetric = {
+  limit?: number | null;
+  remaining?: number | null;
+  reset_at?: string | null;
+  window_seconds?: number | null;
+  source: QuotaSource;
+  confidence?: number | null;
+};
+
+export type TargetRuntime = {
+  state_available: boolean;
+  health: { circuit_state: "closed" | "open" | "half_open"; consecutive_failures: number; last_error?: string | null };
+  quota: Record<"rpm" | "tpm" | "rpd" | "tpd" | "concurrency", QuotaMetric>;
+  quota_source: QuotaSource;
+  quota_confidence?: number | null;
+  latency_ewma_ms?: number | null;
+  latency_samples: number;
+  latency_confidence: "low" | "medium" | "high";
+  ttft_ewma_ms?: number | null;
+};
+
 export type RouteTarget = {
   id?: string;
   provider_connection_id: string;
+  provider_kind?: string;
   model_id: string;
   position?: number;
   billing_tier: BillingTier;
   enabled: boolean;
+  routing_state?: TargetRuntime;
 };
 
 export type RouteRecord = {
   id: string;
   name: string;
   slug: string;
-  strategy: "priority" | "free_first";
+  strategy: RouteStrategy;
   enabled: boolean;
+  paid_fallback: PaidFallback;
+  daily_paid_cap_microusd?: number | null;
   targets: RouteTarget[];
   created_at: string;
 };
@@ -81,6 +109,19 @@ export type VirtualKey = {
   expires_at?: string | null;
 };
 
+export type RoutingDecision = {
+  strategy?: RouteStrategy;
+  effective_strategy?: RouteStrategy | "priority";
+  degraded_reason?: string | null;
+  selected?: { provider?: string; model?: string; reason?: string };
+  fallback_count?: number;
+  path?: Array<{ provider: string; model: string; outcome: string }>;
+  excluded?: Array<{ provider: string; model: string; reason: string }>;
+  quota?: { source?: QuotaSource; confidence?: number | null };
+  circuit_state?: string;
+  latency_confidence?: string;
+};
+
 export type ActivityRecord = {
   request_id: string;
   created_at: string;
@@ -90,7 +131,10 @@ export type ActivityRecord = {
   input_tokens?: number | null;
   output_tokens?: number | null;
   latency_ms: number;
+  ttft_ms?: number | null;
+  estimated_cost_microusd?: number | null;
   status: "success" | "error";
   fallback_count: number;
   error_category?: string | null;
+  routing_decision?: RoutingDecision;
 };

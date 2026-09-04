@@ -8,6 +8,7 @@ from switchroute.api.management import router as management_router
 from switchroute.api.public import router as public_router
 from switchroute.config import get_settings
 from switchroute.errors import SwitchRouteError
+from switchroute.routing.redis_state import create_routing_state
 from switchroute.services import build_services
 from switchroute.storage.postgres import PostgresRepository
 
@@ -17,15 +18,17 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     repository = PostgresRepository(settings.supabase_db_url)
     await repository.connect()
-    app.state.services = build_services(settings, repository)
+    routing_state = await create_routing_state(settings.redis_url)
+    app.state.services = build_services(settings, repository, routing_state)
     yield
+    await routing_state.close()
     await repository.close()
 
 
 app = FastAPI(
     title="SwitchRoute Gateway",
-    version="0.1.0",
-    description="OpenAI-compatible routing gateway for SwitchRoute Cloud Core.",
+    version="0.2.0",
+    description="OpenAI-compatible intelligent capacity router for SwitchRoute.",
     default_response_class=ORJSONResponse,
     lifespan=lifespan,
 )
@@ -49,8 +52,13 @@ async def switchroute_error_handler(_: Request, exc: SwitchRouteError):
 
 
 @app.get("/health", include_in_schema=False)
-async def health():
-    return {"status": "ok", "service": "switchroute-gateway"}
+async def health(request: Request):
+    services = request.app.state.services
+    return {
+        "status": "ok" if services.routing_state.available else "degraded",
+        "service": "switchroute-gateway",
+        "routing_state": "available" if services.routing_state.available else "degraded",
+    }
 
 
 app.include_router(public_router)

@@ -39,8 +39,12 @@ class RouteTargetInput(BaseModel):
 class RouteWrite(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     slug: str = Field(min_length=2, max_length=64)
-    strategy: Literal["priority", "free_first"] = "priority"
+    strategy: Literal[
+        "priority", "free_first", "quota_aware", "fastest", "cheapest", "balanced"
+    ] = "priority"
     enabled: bool = True
+    paid_fallback: Literal["never", "after_free", "allowed"] = "after_free"
+    daily_paid_cap_microusd: int | None = Field(default=None, ge=0)
     targets: list[RouteTargetInput] = Field(min_length=1, max_length=20)
 
     @field_validator("slug")

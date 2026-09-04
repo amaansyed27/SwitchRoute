@@ -28,8 +28,8 @@ async def record_usage(pool: asyncpg.Pool, record: UsageRecord) -> None:
         """insert into public.request_usage(
             request_id,workspace_id,route_id,virtual_key_id,provider_connection_id,
             provider_kind,model_id,input_tokens,output_tokens,latency_ms,status,
-            fallback_count,estimated_cost_microusd,error_category
-        ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)""",
+            fallback_count,estimated_cost_microusd,error_category,ttft_ms,routing_decision
+        ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)""",
         record.request_id,
         record.workspace_id,
         record.route_id,
@@ -44,7 +44,22 @@ async def record_usage(pool: asyncpg.Pool, record: UsageRecord) -> None:
         record.fallback_count,
         record.estimated_cost_microusd,
         record.error_category,
+        record.ttft_ms,
+        record.routing_decision,
     )
+
+
+async def paid_spend_today(pool: asyncpg.Pool, workspace_id: UUID, route_id: UUID) -> int:
+    value = await pool.fetchval(
+        """select coalesce(sum(estimated_cost_microusd),0)
+        from public.request_usage
+        where workspace_id=$1 and route_id=$2 and status='success'
+          and estimated_cost_microusd is not null
+          and created_at >= date_trunc('day', now() at time zone 'utc') at time zone 'utc'""",
+        workspace_id,
+        route_id,
+    )
+    return int(value or 0)
 
 
 async def activity(
@@ -52,8 +67,8 @@ async def activity(
 ) -> list[dict[str, Any]]:
     rows = await pool.fetch(
         """select u.request_id,u.route_id,r.name route_name,u.provider_kind,u.model_id,
-        u.input_tokens,u.output_tokens,u.latency_ms,u.status,u.fallback_count,
-        u.estimated_cost_microusd,u.error_category,u.created_at
+        u.input_tokens,u.output_tokens,u.latency_ms,u.ttft_ms,u.status,u.fallback_count,
+        u.estimated_cost_microusd,u.error_category,u.routing_decision,u.created_at
         from public.request_usage u join public.routes r on r.id=u.route_id
         where u.workspace_id=$1 order by u.created_at desc limit $2""",
         workspace_id,
