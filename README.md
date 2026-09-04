@@ -4,11 +4,11 @@
 
 SwitchRoute is a Dawnlight Labs project that connects the AI providers a developer already has access to, turns them into reusable Routes, and exposes one OpenAI-compatible API key.
 
-The Cloud Core includes Supabase Auth/Postgres, a Next.js product UI, a FastAPI/LiteLLM gateway, encrypted provider credentials, route-bound virtual keys, provider fallback, zero prompt retention, activity metadata, and documentation.
+The hosted foundation includes Supabase Auth/Postgres, a Next.js product UI, a FastAPI/LiteLLM gateway, encrypted provider credentials, route-bound virtual keys, intelligent fallback, zero prompt retention, activity metadata, and documentation.
 
 ## Hosted provider foundation
 
-Slice 1.8 expands the hosted provider layer to 17 production connection types backed by one gateway-owned provider catalog:
+SwitchRoute currently has 17 hosted production connection types backed by one gateway-owned provider catalog:
 
 - **Direct:** OpenAI, Anthropic, Google Gemini, xAI, Mistral AI, DeepSeek, Cohere.
 - **Inference:** Groq, Cerebras, NVIDIA NIM, SambaNova, Together AI, Fireworks AI, DeepInfra.
@@ -16,7 +16,24 @@ Slice 1.8 expands the hosted provider layer to 17 production connection types ba
 
 The web app consumes `GET /manage/provider-catalog`; provider IDs are not independently enumerated across frontend, API schema, and Postgres. Provider model discovery normalizes only metadata actually supplied by providers, with explicit provenance and unknown values when evidence is absent.
 
-Custom hosted endpoints are SSRF-hardened and cannot target localhost or private/local networks. Those belong to SwitchRoute Edge in a later slice.
+Custom hosted endpoints are SSRF-hardened and cannot target localhost or private/local networks. Local providers belong to SwitchRoute Edge in Slice 3.
+
+## Smart routing
+
+Slice 2 adds operational capacity routing while preserving the same OpenAI-compatible endpoint:
+
+- **Priority** — user order after safety/policy filtering.
+- **Free First** — confirmed free capacity before paid capacity.
+- **Quota Aware** — uses known RPM/TPM/RPD/TPD/concurrency headroom.
+- **Fastest** — uses rolling provider/model latency observations.
+- **Cheapest** — uses normalized known provider pricing.
+- **Balanced** — combines availability, quota, latency, and price without a fake model-quality score.
+
+Routes also enforce paid fallback (`never`, `after_free`, `allowed`) and an optional daily paid spend cap. Unknown price is not free; unknown quota is not unlimited; unknown latency is not fastest. A `free_capable` model is counted as free only when available free-scoped capacity has actually been confirmed.
+
+Production hot routing state uses standard Redis through `REDIS_URL`. Local development with no `REDIS_URL` uses a deterministic single-process memory store. If configured production Redis is unavailable, advanced strategies degrade to Priority-safe routing instead of silently assuming unlimited capacity.
+
+See `docs/development/smart-routing.md` for strategy, quota, Redis, health, budget, and provider-header details.
 
 ## Product principles
 
@@ -24,7 +41,7 @@ Custom hosted endpoints are SSRF-hardened and cannot target localhost or private
 - Prompts and completions are never persisted by SwitchRoute.
 - Provider credentials are write-only from the product UI and encrypted before storage.
 - A Route selects exactly one provider/model for a request; it is not an agent chain.
-- UI controls in the product must correspond to real behavior.
+- UI controls in the product must correspond to real server behavior.
 - Source files stay focused and modular; CI warns on oversized source files.
 - Unknown provider metadata remains unknown; SwitchRoute does not invent quality scores.
 
@@ -43,17 +60,18 @@ scripts/               Repository and contract checks
 
 ## Local development
 
-Requirements for normal hosted-Supabase development: Node.js 22+ and Python 3.12+. Docker Desktop and the Supabase CLI are only required when intentionally running the database/RLS test stack locally.
+Requirements for normal hosted-Supabase development: Node.js 22+ and Python 3.12+. Redis is optional for single-process development and required to exercise distributed Slice 2 routing semantics. Docker Desktop and the Supabase CLI are only required when intentionally running Redis/database integration paths locally.
 
 1. Configure the hosted Supabase project and allow `http://localhost:3000/auth/callback` in Auth redirect URLs.
 2. Copy `.env.example` to `.env` and fill the Gateway block with the hosted Supabase URL, publishable key, Session Pooler database URL, and generated local encryption secrets.
-3. Create `apps/web/.env.local` from the Web block in `.env.example`.
-4. Install web dependencies: `npm install`.
-5. Create the gateway Python 3.12 venv and install it: `py -3.12 -m venv .venv`, then `pip install -e ".\services\gateway[dev]"`.
-6. Run the gateway: `python -m uvicorn switchroute.main:app --app-dir services/gateway/src --reload --port 8000`.
-7. Run the web app in another terminal: `npm run dev:web`.
+3. For in-memory routing, remove/comment `REDIS_URL`. To exercise Redis routing, start Redis and keep `REDIS_URL=redis://localhost:6379/0`.
+4. Create `apps/web/.env.local` from the Web block in `.env.example`.
+5. Install web dependencies: `npm install`.
+6. Create the gateway Python 3.12 venv and install it: `py -3.12 -m venv .venv`, then `pip install -e ".\services\gateway[dev]"`.
+7. Run the gateway: `python -m uvicorn switchroute.main:app --app-dir services/gateway/src --reload --port 8000`.
+8. Run the web app in another terminal: `npm run dev:web`.
 
-See `docs/development/local-windows.md` for the full PowerShell workflow and the optional local Supabase test path.
+See `docs/development/local-windows.md` for the full PowerShell workflow and optional Redis/Supabase test paths.
 
 ## Deployment intent
 
