@@ -9,6 +9,7 @@ from switchroute.routing.context import ExcludedCandidate, PlanCandidate, Routin
 from switchroute.routing.requirements import capability_reason, infer_requirements
 from switchroute.routing.state import RoutingState, TargetState, target_key
 from switchroute.routing.strategies import balanced, cheapest, fastest, free_first, priority, quota_aware
+from switchroute.storage.contracts import Repository
 
 StrategyFn = Callable[[list[PlanCandidate]], list[PlanCandidate]]
 STRATEGIES: dict[str, StrategyFn] = {
@@ -22,7 +23,7 @@ STRATEGIES: dict[str, StrategyFn] = {
 
 
 class RoutingPlanner:
-    def __init__(self, state: RoutingState, repository: object) -> None:
+    def __init__(self, state: RoutingState, repository: Repository) -> None:
         self.state = state
         self.repository = repository
 
@@ -37,22 +38,33 @@ class RoutingPlanner:
             degraded_reason = "redis_unavailable_priority_safe"
 
         durable_spend = 0
-        paid_spend = getattr(self.repository, "paid_spend_today", None)
-        if context.daily_paid_cap_microusd is not None and callable(paid_spend):
-            durable_spend = int(await paid_spend(context.workspace_id, context.route_id))
+        if context.daily_paid_cap_microusd is not None:
+            durable_spend = int(
+                await self.repository.paid_spend_today(
+                    context.workspace_id, context.route_id
+                )
+            )
 
         eligible: list[PlanCandidate] = []
         excluded: list[ExcludedCandidate] = []
         capability_exclusions = 0
         for candidate in context.candidates:
-            reason = capability_reason(candidate.capabilities, candidate.metadata_provenance, requirements.capabilities)
+            reason = capability_reason(
+                candidate.capabilities,
+                candidate.metadata_provenance,
+                requirements.capabilities,
+            )
             if reason:
                 capability_exclusions += 1
-                excluded.append(ExcludedCandidate(candidate.provider_kind, candidate.model_id, reason))
+                excluded.append(
+                    ExcludedCandidate(candidate.provider_kind, candidate.model_id, reason)
+                )
                 continue
             reason = paid_policy_reason(candidate, policy)
             if reason:
-                excluded.append(ExcludedCandidate(candidate.provider_kind, candidate.model_id, reason))
+                excluded.append(
+                    ExcludedCandidate(candidate.provider_kind, candidate.model_id, reason)
+                )
                 continue
             try:
                 state = await self.state.snapshot(target_key(candidate))
@@ -61,16 +73,35 @@ class RoutingPlanner:
                 if effective != "priority":
                     effective = "priority"
                 degraded_reason = "redis_unavailable_priority_safe"
-            if state.health.circuit_state is CircuitState.OPEN and not state.health.routable():
-                excluded.append(ExcludedCandidate(candidate.provider_kind, candidate.model_id, "circuit_open"))
+            if (
+                state.health.circuit_state is CircuitState.OPEN
+                and not state.health.routable()
+            ):
+                excluded.append(
+                    ExcludedCandidate(
+                        candidate.provider_kind, candidate.model_id, "circuit_open"
+                    )
+                )
                 continue
             if state.quota.exhausted:
-                excluded.append(ExcludedCandidate(candidate.provider_kind, candidate.model_id, "quota_exhausted"))
+                excluded.append(
+                    ExcludedCandidate(
+                        candidate.provider_kind, candidate.model_id, "quota_exhausted"
+                    )
+                )
                 continue
             expected_cost = cost_microusd(candidate, input_tokens, output_tokens)
             paid = not is_free_candidate(candidate)
-            if paid and context.daily_paid_cap_microusd is not None and expected_cost is None:
-                excluded.append(ExcludedCandidate(candidate.provider_kind, candidate.model_id, "budget_unknown_cost"))
+            if (
+                paid
+                and context.daily_paid_cap_microusd is not None
+                and expected_cost is None
+            ):
+                excluded.append(
+                    ExcludedCandidate(
+                        candidate.provider_kind, candidate.model_id, "budget_unknown_cost"
+                    )
+                )
                 continue
             eligible.append(
                 PlanCandidate(
@@ -90,7 +121,11 @@ class RoutingPlanner:
                     "No Route target has confirmed support for the request capabilities.",
                     400,
                 )
-            raise SwitchRouteError(ROUTE_UNAVAILABLE, "No eligible Route target is currently available.", 503)
+            raise SwitchRouteError(
+                ROUTE_UNAVAILABLE,
+                "No eligible Route target is currently available.",
+                503,
+            )
 
         order = STRATEGIES[effective]
         if context.paid_fallback == "after_free":
@@ -108,8 +143,14 @@ class RoutingPlanner:
             durable_paid_spend_microusd=durable_spend,
         )
 
-    async def reserve(self, context: VirtualKeyContext, plan: RoutingPlan, item: PlanCandidate):
-        if not self.state.available and item.paid and context.daily_paid_cap_microusd is not None:
+    async def reserve(
+        self, context: VirtualKeyContext, plan: RoutingPlan, item: PlanCandidate
+    ):
+        if (
+            not self.state.available
+            and item.paid
+            and context.daily_paid_cap_microusd is not None
+        ):
             return None
         return await self.state.reserve(
             key=target_key(item.candidate),
