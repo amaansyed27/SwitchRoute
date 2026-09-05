@@ -5,7 +5,8 @@ from switchroute.config import Settings
 from switchroute.providers.registry import ProviderRegistry
 from switchroute.routing.invoker import LiteLLMInvoker
 from switchroute.routing.state import RoutingState
-from switchroute.secrets.aes_gcm import AesGcmSecretStore
+from switchroute.secrets.base import SecretStore
+from switchroute.secrets.factory import build_secret_store
 from switchroute.storage.contracts import Repository
 
 
@@ -13,7 +14,7 @@ from switchroute.storage.contracts import Repository
 class Services:
     settings: Settings
     repository: Repository
-    secrets: AesGcmSecretStore
+    secrets: SecretStore
     providers: ProviderRegistry
     invoker: LiteLLMInvoker
     user_auth: SupabaseAuthenticator
@@ -25,7 +26,7 @@ def build_services(settings: Settings, repository: Repository, routing_state: Ro
     return Services(
         settings=settings,
         repository=repository,
-        secrets=AesGcmSecretStore(settings.switchroute_secret_key, settings.switchroute_secret_key_id),
+        secrets=build_secret_store(settings),
         providers=providers,
         invoker=LiteLLMInvoker(providers, settings.enable_test_provider),
         user_auth=SupabaseAuthenticator(settings.supabase_url, settings.supabase_publishable_key),
