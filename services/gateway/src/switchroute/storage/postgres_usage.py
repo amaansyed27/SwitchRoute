@@ -57,7 +57,7 @@ async def paid_spend_today(
     value = await pool.fetchval(
         """select coalesce(sum(estimated_cost_microusd),0)
         from public.request_usage
-        where workspace_id=$1 and route_id=$2 and status='success'
+        where workspace_id=$1 and route_id=$2
           and paid_routing
           and estimated_cost_microusd is not null
           and created_at >= date_trunc('day', now() at time zone 'utc') at time zone 'utc'""",
