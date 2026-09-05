@@ -68,9 +68,7 @@ async fn spawn_mock() -> (String, Arc<AtomicUsize>) {
         .with_state(MockState {
             calls: calls.clone(),
         });
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     tokio::spawn(async move {
         axum::serve(listener, app).await.unwrap();
@@ -128,7 +126,14 @@ fn runtime(kind: RuntimeKind, base_url: &str) -> RuntimeConnection {
     }
 }
 
-async fn configured_vllm(base_url: &str) -> (tempfile::TempDir, std::path::PathBuf, Store, RuntimeConnection) {
+async fn configured_vllm(
+    base_url: &str,
+) -> (
+    tempfile::TempDir,
+    std::path::PathBuf,
+    Store,
+    RuntimeConnection,
+) {
     let directory = tempfile::tempdir().unwrap();
     let database = directory.path().join("edge.db");
     let store = Store::open(&database).unwrap();
