@@ -1,45 +1,100 @@
-# Roadmap
+# SwitchRoute Roadmap
+
+This roadmap describes intended delivery slices. It is not a compatibility or release promise.
 
 ## Slice 1 — Cloud Core
 
-Supabase-backed identity/persistence, encrypted provider credentials, Routes, route-bound virtual keys, OpenAI-compatible chat streaming, sanitized activity metadata, documentation, and the core security model.
+Implemented on `main`.
 
-### Slice 1.8 — Provider Foundation + Cloud Provider Expansion
+- Supabase Auth and SSR session lifecycle.
+- provider credential validation + encrypted gateway-side storage.
+- `switchroute` virtual keys shown once and stored as keyed hashes.
+- deterministic priority Routes.
+- OpenAI-compatible `/v1/chat/completions` and `/v1/models`.
+- sanitized activity metadata and zero prompt/response persistence.
+- strict browser-to-gateway management BFF.
+- responsive desktop/mobile management UI.
+- current validated hosted provider catalog plus explicit custom OpenAI-compatible endpoints.
+- production domain targets:
+  - `switchroute.dawnlightlabs.com`
+  - `api.switchroute.dawnlightlabs.com`
 
-- Canonical backend provider catalog exposed to the management UI.
-- Flexible safe-format provider persistence instead of a provider-ID database enum/check list.
-- 17 hosted provider connection types across direct providers, inference platforms, gateways, and custom public OpenAI-compatible endpoints.
-- Richer evidence-based model metadata with provenance.
-- SSRF-hardened custom hosted endpoint support.
+## Slice 2 — Smart Capacity Routing
 
-## Slice 2 — Smart Routing
+Implemented on `main`.
 
-Implemented and merged before Slice 3:
+- Route strategies: Priority, Free First, Quota Aware, Fastest, Cheapest, and Balanced.
+- explicit RPM/TPM/RPD/TPD/concurrency quota semantics with confidence and provenance.
+- conservative free-capacity rules: unknown is never silently treated as free/unlimited.
+- distributed Redis hot state for counters, reservations, health, latency, and circuit breakers.
+- deterministic fail-closed/degraded behavior if configured Redis state is unavailable.
+- paid fallback controls and atomic daily paid-cap enforcement.
+- immutable normalized pricing and capability metadata.
+- failover/retry before output only; no mixed-provider streams.
+- bounded routing telemetry in the Activity UI.
 
-- Redis-compatible hot routing state behind a vendor-neutral abstraction.
-- Explicit quota provenance/confidence and conservative unknown-data behavior.
-- Atomic capacity and paid-budget reservations.
-- Capability filtering, Priority, Free First, Quota Aware, Fastest, Cheapest, and Balanced strategies.
-- Server-enforced paid fallback and optional daily paid cap.
-- Provider/model health, circuit breakers, latency and streaming TTFT.
+## Slice 3 — Edge + Local Models
 
-## Slice 3 — SwitchRoute Edge
+Implemented on `main`.
 
-Implemented on `slice/3-edge-local` for review:
+- Rust Edge daemon for Windows, macOS, and Linux with loopback-only bind enforcement.
+- local discovery for Ollama, LM Studio, and vLLM.
+- manual llama.cpp, SGLang, LocalAI, FreeToken, custom local, and hosted SwitchRoute targets.
+- Priority, Local First, and Free First Edge strategies.
+- local OpenAI-compatible `/v1/chat/completions` and `/v1/models`.
+- hash-only `sr_edge_` keys and OS credential-store secrets.
+- SQLite configuration/model/Route/activity metadata with no prompt/response persistence.
+- terminal-first `discover`, `runtime`, `model`, `route`, `key`, and `activity` UX.
 
-- Rust Edge daemon with loopback-only OpenAI-compatible API.
-- First-class Ollama, LM Studio, vLLM, llama.cpp, SGLang, LocalAI, FreeToken, and custom local OpenAI-compatible runtime support.
-- Native/stronger discovery where available, with normalized local/cloud/unknown model origin.
-- Local SQLite persistence with hash-only Edge keys and bounded sanitized activity.
-- OS credential-store integration for runtime and hosted-fallback secrets.
-- Priority, Local First and Free First routing with health/model checks.
-- Local-to-hosted SwitchRoute fallback without copying hosted provider credentials to the machine.
-- Streaming fallback only before output begins; no cross-provider stream splicing.
-- Mock-runtime contract/E2E tests plus Linux, Windows, and macOS CI.
-- Edge runtime, security, Windows, and web documentation.
+## Slice 4 — Release Hardening
 
-Remote device pairing and a public tunnel are intentionally not implemented in Slice 3; no fake pairing UI/schema is present.
+Implemented on `slice/4-release-hardening` and awaiting release review before merge or public-beta promotion.
 
-## Slice 4 — Release surface
+### SDKs
 
-Remaining release work includes installers/binary distribution, npm/PyPI SDK distribution, signing/release automation, final security hardening, production deployment review, and stronger DNS-rebinding-resistant connection pinning for custom hosted endpoints.
+- Python SDK with sync/async clients, context managers, streaming SSE, typed exceptions and package metadata.
+- TypeScript SDK with fetch implementation, async-iterable streaming, typed errors and package metadata.
+- OpenAI SDK compatibility matrix and explicit unsupported-endpoint documentation.
+- package build, install, audit and release workflows.
+
+### Edge distribution
+
+- release binaries for Windows x64, Linux x64, macOS ARM64, and macOS x64.
+- `switchroute-edge --version` / `version`.
+- checksum generation and versioned release archives.
+- Windows install/upgrade/uninstall guide.
+
+### Hosted hardening
+
+- request correlation IDs and bounded structured operational logs.
+- reconnect-safe Redis quota reservation lifecycle.
+- custom-endpoint SSRF protections with DNS validation and connection pinning.
+- versioned provider-credential encryption keys with optional AWS KMS-wrapped production data keys.
+- stable OpenAI-shaped error taxonomy and docs.
+
+### Quality gates
+
+- full CI across web, gateway, database, SDKs, Rust targets, audits, secret scans and release checks.
+- generated OpenAPI contract drift detection.
+- official OpenAI Python/JavaScript smoke coverage.
+- zero-retention static checks and database tests.
+- release version consistency checks.
+- load/k6 scenarios for normal, model-list and streaming requests.
+
+### Launch documentation
+
+- getting-started flow for sign-in -> provider -> Route -> key -> request.
+- provider guide links for every current provider.
+- API and SDK docs, Edge docs, security docs, production runbooks and rollback procedures.
+- changelog, release process, compatibility matrix and explicit repository license status.
+
+### Remaining public-beta release gates
+
+The release-hardening code and CI implementation are complete. The remaining work is operational evidence, deployment verification, and release policy rather than missing routing/product code.
+
+- record measured load-test thresholds against the real deployment and tune from evidence.
+- perform a production deploy + rollback drill and a database restore drill before making public trust claims.
+- configure release credentials/trusted publishing and exercise the SDK/Edge release workflows without publishing unintended artifacts.
+- make an explicit repository license decision before third-party distribution.
+- attach the production web/API domains to verified deployments and verify deep links, authentication callbacks, cookies, and browser-to-gateway behavior.
+- review current Supabase security/performance advisors and resolve any launch-blocking findings that apply to the production plan and architecture.
