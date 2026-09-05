@@ -16,11 +16,13 @@ def main() -> None:
     gateway = tomllib.loads((ROOT / "services/gateway/pyproject.toml").read_text(encoding="utf-8"))
     python_sdk = tomllib.loads((ROOT / "sdk/python/pyproject.toml").read_text(encoding="utf-8"))
     js_sdk = json.loads((ROOT / "sdk/javascript/package.json").read_text(encoding="utf-8"))
+    edge = tomllib.loads((ROOT / "crates/switchroute-edge/Cargo.toml").read_text(encoding="utf-8"))
 
     observed = {
         "gateway": gateway["project"]["version"],
         "python-sdk": python_sdk["project"]["version"],
         "javascript-sdk": js_sdk["version"],
+        "edge": edge["package"]["version"],
     }
     drift = {name: value for name, value in observed.items() if value != version}
     if drift:
