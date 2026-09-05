@@ -1,17 +1,374 @@
-use std::{sync::{Arc,atomic::{AtomicUsize,Ordering}},time::Duration};
-use axum::{extract::State,http::StatusCode,response::{IntoResponse,Response},routing::{get,post},Json,Router};
-use serde_json::{json,Value};
-use switchroute_edge::{api::{self,AppState},auth::create_key,models::*,persistence::Store,providers::{adapter,send_chat},routing::RouterEngine,secrets::{MemorySecretStore,SecretStore}};
+use axum::{
+    extract::State,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing::{get, post},
+    Json, Router,
+};
+use serde_json::{json, Value};
+use std::{
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
+use switchroute_edge::{
+    api::{self, AppState},
+    auth::create_key,
+    models::*,
+    persistence::Store,
+    providers::{adapter, send_chat},
+    routing::RouterEngine,
+    secrets::{MemorySecretStore, SecretStore},
+};
 
-#[derive(Clone)]struct MockState{calls:Arc<AtomicUsize>}
-async fn spawn_mock()->(String,Arc<AtomicUsize>){let calls=Arc::new(AtomicUsize::new(0));let app=Router::new().route("/health",get(||async{Json(json!({"status":"ok"}))})).route("/readyz",get(||async{"OK"})).route("/api/v1/models",get(||async{Json(json!({"models":[{"key":"good","loaded":true,"max_context_length":8192}]}))})).route("/v1/models",get(||async{Json(json!({"object":"list","data":[{"id":"good"},{"id":"error"},{"id":"silent"},{"id":"partial"}]}))})).route("/api/tags",get(||async{Json(json!({"models":[{"model":"good"},{"model":"cloud","remote_model":"upstream","remote_host":"https://ollama.com:443"}]}))})).route("/api/ps",get(||async{Json(json!({"models":[{"model":"good","context_length":4096}]}))})).route("/api/show",post(|Json(v):Json<Value>|async move{if v.get("model").and_then(Value::as_str)==Some("cloud"){Json(json!({"remote_model":"upstream","remote_host":"https://ollama.com:443","capabilities":["completion","tools"]}))}else{Json(json!({"capabilities":["completion"],"model_info":{"llama.context_length":8192}}))}})).route("/v1/chat/completions",post(mock_chat)).with_state(MockState{calls:calls.clone()});let listener=tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();let addr=listener.local_addr().unwrap();tokio::spawn(async move{axum::serve(listener,app).await.unwrap();});(format!("http://{addr}"),calls)}
-async fn mock_chat(State(state):State<MockState>,Json(v):Json<Value>)->Response{state.calls.fetch_add(1,Ordering::SeqCst);let model=v.get("model").and_then(Value::as_str).unwrap_or("");let stream=v.get("stream").and_then(Value::as_bool).unwrap_or(false);if model=="error"{return (StatusCode::INTERNAL_SERVER_ERROR,Json(json!({"error":"mock"}))).into_response()}if !stream{return Json(json!({"id":"chatcmpl-mock","object":"chat.completion","choices":[{"message":{"role":"assistant","content":"ok"},"finish_reason":"stop","index":0}]})).into_response()}let body=if model=="silent"{"data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\ndata: [DONE]\n\n"}else if model=="partial"{"data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n"}else{"data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\n\ndata: [DONE]\n\n"};([("content-type","text/event-stream")],body).into_response()}
-fn runtime(kind:RuntimeKind,base:&str)->RuntimeConnection{RuntimeConnection{id:format!("test-{}",kind.id()),kind,display_name:kind.display_name().into(),base_url:base.into(),enabled:true,manual:true,auth_secret_ref:None}}
-fn temp_store()->(tempfile::TempDir,Store){let dir=tempfile::tempdir().unwrap();let store=Store::open(&dir.path().join("edge.db")).unwrap();(dir,store)}
+#[derive(Clone)]
+struct MockState {
+    calls: Arc<AtomicUsize>,
+}
+async fn spawn_mock() -> (String, Arc<AtomicUsize>) {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let app=Router::new().route("/health",get(||async{Json(json!({"status":"ok"}))})).route("/readyz",get(||async{"OK"})).route("/api/v1/models",get(||async{Json(json!({"models":[{"key":"good","loaded":true,"max_context_length":8192}]}))})).route("/v1/models",get(||async{Json(json!({"object":"list","data":[{"id":"good"},{"id":"error"},{"id":"silent"},{"id":"partial"}]}))})).route("/api/tags",get(||async{Json(json!({"models":[{"model":"good"},{"model":"cloud","remote_model":"upstream","remote_host":"https://ollama.com:443"}]}))})).route("/api/ps",get(||async{Json(json!({"models":[{"model":"good","context_length":4096}]}))})).route("/api/show",post(|Json(v):Json<Value>|async move{if v.get("model").and_then(Value::as_str)==Some("cloud"){Json(json!({"remote_model":"upstream","remote_host":"https://ollama.com:443","capabilities":["completion","tools"]}))}else{Json(json!({"capabilities":["completion"],"model_info":{"llama.context_length":8192}}))}})).route("/v1/chat/completions",post(mock_chat)).with_state(MockState{calls:calls.clone()});
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+    (format!("http://{addr}"), calls)
+}
+async fn mock_chat(State(state): State<MockState>, Json(v): Json<Value>) -> Response {
+    state.calls.fetch_add(1, Ordering::SeqCst);
+    let model = v.get("model").and_then(Value::as_str).unwrap_or("");
+    let stream = v.get("stream").and_then(Value::as_bool).unwrap_or(false);
+    if model == "error" {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error":"mock"})),
+        )
+            .into_response();
+    }
+    if !stream {
+        return Json(json!({"id":"chatcmpl-mock","object":"chat.completion","choices":[{"message":{"role":"assistant","content":"ok"},"finish_reason":"stop","index":0}]})).into_response();
+    }
+    let body = if model == "silent" {
+        "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\ndata: [DONE]\n\n"
+    } else if model == "partial" {
+        "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n"
+    } else {
+        "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\n\ndata: [DONE]\n\n"
+    };
+    ([("content-type", "text/event-stream")], body).into_response()
+}
+fn runtime(kind: RuntimeKind, base: &str) -> RuntimeConnection {
+    RuntimeConnection {
+        id: format!("test-{}", kind.id()),
+        kind,
+        display_name: kind.display_name().into(),
+        base_url: base.into(),
+        enabled: true,
+        manual: true,
+        auth_secret_ref: None,
+    }
+}
+fn temp_store() -> (tempfile::TempDir, Store) {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(&dir.path().join("edge.db")).unwrap();
+    (dir, store)
+}
 
-#[tokio::test]async fn every_p0_runtime_contract(){let (base,_)=spawn_mock().await;let client=switchroute_edge::discovery::http_client().unwrap();for kind in RuntimeKind::P0{let r=runtime(kind,&base);let a=adapter(kind);assert!(a.probe(&client,&r,None).await,"{kind}");assert!(!a.discover_models(&client,&r,None).await.unwrap().is_empty(),"{kind}");assert!(send_chat(&client,&r,None,&json!({"model":"good","messages":[],"stream":false})).await.unwrap().status().is_success());assert!(send_chat(&client,&r,None,&json!({"model":"good","messages":[],"stream":true})).await.unwrap().status().is_success());assert_eq!(send_chat(&client,&r,None,&json!({"model":"error","messages":[]})).await.unwrap().status(),StatusCode::INTERNAL_SERVER_ERROR);assert!(!a.probe(&client,&runtime(kind,"http://127.0.0.1:9"),None).await);}}
-#[tokio::test]async fn ollama_local_cloud_provenance(){let(base,_)=spawn_mock().await;let c=switchroute_edge::discovery::http_client().unwrap();let m=adapter(RuntimeKind::Ollama).discover_models(&c,&runtime(RuntimeKind::Ollama,&base),None).await.unwrap();assert!(m.iter().any(|x|x.id=="good"&&x.origin==ModelOrigin::Local&&x.loaded==Some(true)));assert!(m.iter().any(|x|x.id=="cloud"&&x.origin==ModelOrigin::Cloud));}
-#[tokio::test]async fn local_to_cloud_fallback_and_zero_content_retention(){let(base,calls)=spawn_mock().await;let(_d,store)=temp_store();let secrets=MemorySecretStore::default();let r=runtime(RuntimeKind::Vllm,&base);store.upsert_runtime(&r).unwrap();let m=adapter(RuntimeKind::Vllm).discover_models(&switchroute_edge::discovery::http_client().unwrap(),&r,None).await.unwrap();store.replace_models(&r.id,&m).unwrap();let route=store.create_route("Coding","coding",RouteStrategy::LocalFirst,true).unwrap();store.add_target(&route.id,0,TargetKind::Local{runtime_id:r.id.clone(),model_id:"error".into()}).unwrap();secrets.put("cloud-test","sr_test_mock").unwrap();store.add_target(&route.id,1,TargetKind::Cloud{base_url:base,route_slug:"good".into(),secret_ref:"cloud-test".into()}).unwrap();let engine=RouterEngine::new(store.clone(),Arc::new(secrets)).unwrap();let response=engine.complete(&route,&json!({"model":"auto","messages":[{"role":"user","content":"never persist me"}]})).await.unwrap();assert_eq!(response.status(),StatusCode::OK);assert_eq!(calls.load(Ordering::SeqCst),2);assert_eq!(store.activity_count().unwrap(),1);assert!(!store.raw_activity_text().unwrap().contains("never persist me"));}
-#[tokio::test]async fn stream_fallback_boundary(){let(base,calls)=spawn_mock().await;let(_d,store)=temp_store();let r=runtime(RuntimeKind::Vllm,&base);store.upsert_runtime(&r).unwrap();let m=adapter(RuntimeKind::Vllm).discover_models(&switchroute_edge::discovery::http_client().unwrap(),&r,None).await.unwrap();store.replace_models(&r.id,&m).unwrap();let route=store.create_route("Stream","stream",RouteStrategy::Priority,true).unwrap();store.add_target(&route.id,0,TargetKind::Local{runtime_id:r.id.clone(),model_id:"silent".into()}).unwrap();store.add_target(&route.id,1,TargetKind::Local{runtime_id:r.id.clone(),model_id:"good".into()}).unwrap();let engine=RouterEngine::new(store,Arc::new(MemorySecretStore::default())).unwrap();let response=engine.stream(&route,&json!({"messages":[],"stream":true})).await.unwrap();assert!(body_text(response).await.contains("\"content\":\"ok\""));assert_eq!(calls.load(Ordering::SeqCst),2);let(base,calls)=spawn_mock().await;let(_d,store)=temp_store();let r=runtime(RuntimeKind::Vllm,&base);store.upsert_runtime(&r).unwrap();let m=adapter(RuntimeKind::Vllm).discover_models(&switchroute_edge::discovery::http_client().unwrap(),&r,None).await.unwrap();store.replace_models(&r.id,&m).unwrap();let route=store.create_route("No splice","no-splice",RouteStrategy::Priority,true).unwrap();store.add_target(&route.id,0,TargetKind::Local{runtime_id:r.id.clone(),model_id:"partial".into()}).unwrap();store.add_target(&route.id,1,TargetKind::Local{runtime_id:r.id,model_id:"good".into()}).unwrap();let response=RouterEngine::new(store,Arc::new(MemorySecretStore::default())).unwrap().stream(&route,&json!({"messages":[],"stream":true})).await.unwrap();assert!(body_text(response).await.contains("partial"));assert_eq!(calls.load(Ordering::SeqCst),1);}
-async fn body_text(response:Response)->String{String::from_utf8(axum::body::to_bytes(response.into_body(),1024*1024).await.unwrap().to_vec()).unwrap()}
-#[tokio::test]async fn edge_api_auth_stream_and_restart(){let(base,_)=spawn_mock().await;let dir=tempfile::tempdir().unwrap();let db=dir.path().join("edge.db");let store=Store::open(&db).unwrap();let r=runtime(RuntimeKind::Vllm,&base);store.upsert_runtime(&r).unwrap();let m=adapter(RuntimeKind::Vllm).discover_models(&switchroute_edge::discovery::http_client().unwrap(),&r,None).await.unwrap();store.replace_models(&r.id,&m).unwrap();let route=store.create_route("Default","default",RouteStrategy::Priority,true).unwrap();store.add_target(&route.id,0,TargetKind::Local{runtime_id:r.id,model_id:"good".into()}).unwrap();let key=create_key(&store,"test").unwrap();let listener=tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();let addr=listener.local_addr().unwrap();let server_store=store.clone();tokio::spawn(async move{axum::serve(listener,api::app(AppState{store:server_store,secrets:Arc::new(MemorySecretStore::default())})).await.unwrap();});let c=reqwest::Client::new();assert_eq!(c.get(format!("http://{addr}/v1/models")).send().await.unwrap().status(),StatusCode::UNAUTHORIZED);assert!(c.get(format!("http://{addr}/v1/models")).bearer_auth(&key).send().await.unwrap().status().is_success());let response=c.post(format!("http://{addr}/v1/chat/completions")).bearer_auth(&key).json(&json!({"model":"auto","messages":[{"role":"user","content":"e2e secret prompt"}],"stream":true})).send().await.unwrap();assert!(response.status().is_success());assert!(response.text().await.unwrap().contains("\"content\":\"ok\""));tokio::time::sleep(Duration::from_millis(20)).await;let reopened=Store::open(&db).unwrap();assert_eq!(reopened.routes().unwrap().len(),1);assert!(!reopened.raw_activity_text().unwrap().contains("e2e secret prompt"));}
+#[tokio::test]
+async fn every_p0_runtime_contract() {
+    let (base, _) = spawn_mock().await;
+    let client = switchroute_edge::discovery::http_client().unwrap();
+    for kind in RuntimeKind::P0 {
+        let r = runtime(kind, &base);
+        let a = adapter(kind);
+        assert!(a.probe(&client, &r, None).await, "{kind}");
+        assert!(
+            !a.discover_models(&client, &r, None)
+                .await
+                .unwrap()
+                .is_empty(),
+            "{kind}"
+        );
+        assert!(send_chat(
+            &client,
+            &r,
+            None,
+            &json!({"model":"good","messages":[],"stream":false})
+        )
+        .await
+        .unwrap()
+        .status()
+        .is_success());
+        assert!(send_chat(
+            &client,
+            &r,
+            None,
+            &json!({"model":"good","messages":[],"stream":true})
+        )
+        .await
+        .unwrap()
+        .status()
+        .is_success());
+        assert_eq!(
+            send_chat(&client, &r, None, &json!({"model":"error","messages":[]}))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+        assert!(
+            !a.probe(&client, &runtime(kind, "http://127.0.0.1:9"), None)
+                .await
+        );
+    }
+}
+#[tokio::test]
+async fn ollama_local_cloud_provenance() {
+    let (base, _) = spawn_mock().await;
+    let c = switchroute_edge::discovery::http_client().unwrap();
+    let m = adapter(RuntimeKind::Ollama)
+        .discover_models(&c, &runtime(RuntimeKind::Ollama, &base), None)
+        .await
+        .unwrap();
+    assert!(m
+        .iter()
+        .any(|x| x.id == "good" && x.origin == ModelOrigin::Local && x.loaded == Some(true)));
+    assert!(m
+        .iter()
+        .any(|x| x.id == "cloud" && x.origin == ModelOrigin::Cloud));
+}
+#[tokio::test]
+async fn local_to_cloud_fallback_and_zero_content_retention() {
+    let (base, calls) = spawn_mock().await;
+    let (_d, store) = temp_store();
+    let secrets = MemorySecretStore::default();
+    let r = runtime(RuntimeKind::Vllm, &base);
+    store.upsert_runtime(&r).unwrap();
+    let m = adapter(RuntimeKind::Vllm)
+        .discover_models(
+            &switchroute_edge::discovery::http_client().unwrap(),
+            &r,
+            None,
+        )
+        .await
+        .unwrap();
+    store.replace_models(&r.id, &m).unwrap();
+    let route = store
+        .create_route("Coding", "coding", RouteStrategy::LocalFirst, true)
+        .unwrap();
+    store
+        .add_target(
+            &route.id,
+            0,
+            TargetKind::Local {
+                runtime_id: r.id.clone(),
+                model_id: "error".into(),
+            },
+        )
+        .unwrap();
+    secrets.put("cloud-test", "sr_test_mock").unwrap();
+    store
+        .add_target(
+            &route.id,
+            1,
+            TargetKind::Cloud {
+                base_url: base,
+                route_slug: "good".into(),
+                secret_ref: "cloud-test".into(),
+            },
+        )
+        .unwrap();
+    let engine = RouterEngine::new(store.clone(), Arc::new(secrets)).unwrap();
+    let response = engine
+        .complete(
+            &route,
+            &json!({"model":"auto","messages":[{"role":"user","content":"never persist me"}]}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert_eq!(store.activity_count().unwrap(), 1);
+    assert!(!store
+        .raw_activity_text()
+        .unwrap()
+        .contains("never persist me"));
+}
+#[tokio::test]
+async fn stream_fallback_boundary() {
+    let (base, calls) = spawn_mock().await;
+    let (_d, store) = temp_store();
+    let r = runtime(RuntimeKind::Vllm, &base);
+    store.upsert_runtime(&r).unwrap();
+    let m = adapter(RuntimeKind::Vllm)
+        .discover_models(
+            &switchroute_edge::discovery::http_client().unwrap(),
+            &r,
+            None,
+        )
+        .await
+        .unwrap();
+    store.replace_models(&r.id, &m).unwrap();
+    let route = store
+        .create_route("Stream", "stream", RouteStrategy::Priority, true)
+        .unwrap();
+    store
+        .add_target(
+            &route.id,
+            0,
+            TargetKind::Local {
+                runtime_id: r.id.clone(),
+                model_id: "silent".into(),
+            },
+        )
+        .unwrap();
+    store
+        .add_target(
+            &route.id,
+            1,
+            TargetKind::Local {
+                runtime_id: r.id.clone(),
+                model_id: "good".into(),
+            },
+        )
+        .unwrap();
+    let engine = RouterEngine::new(store, Arc::new(MemorySecretStore::default())).unwrap();
+    let response = engine
+        .stream(&route, &json!({"messages":[],"stream":true}))
+        .await
+        .unwrap();
+    assert!(body_text(response).await.contains("\"content\":\"ok\""));
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    let (base, calls) = spawn_mock().await;
+    let (_d, store) = temp_store();
+    let r = runtime(RuntimeKind::Vllm, &base);
+    store.upsert_runtime(&r).unwrap();
+    let m = adapter(RuntimeKind::Vllm)
+        .discover_models(
+            &switchroute_edge::discovery::http_client().unwrap(),
+            &r,
+            None,
+        )
+        .await
+        .unwrap();
+    store.replace_models(&r.id, &m).unwrap();
+    let route = store
+        .create_route("No splice", "no-splice", RouteStrategy::Priority, true)
+        .unwrap();
+    store
+        .add_target(
+            &route.id,
+            0,
+            TargetKind::Local {
+                runtime_id: r.id.clone(),
+                model_id: "partial".into(),
+            },
+        )
+        .unwrap();
+    store
+        .add_target(
+            &route.id,
+            1,
+            TargetKind::Local {
+                runtime_id: r.id,
+                model_id: "good".into(),
+            },
+        )
+        .unwrap();
+    let response = RouterEngine::new(store, Arc::new(MemorySecretStore::default()))
+        .unwrap()
+        .stream(&route, &json!({"messages":[],"stream":true}))
+        .await
+        .unwrap();
+    assert!(body_text(response).await.contains("partial"));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+async fn body_text(response: Response) -> String {
+    String::from_utf8(
+        axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap()
+}
+#[tokio::test]
+async fn edge_api_auth_stream_and_restart() {
+    let (base, _) = spawn_mock().await;
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("edge.db");
+    let store = Store::open(&db).unwrap();
+    let r = runtime(RuntimeKind::Vllm, &base);
+    store.upsert_runtime(&r).unwrap();
+    let m = adapter(RuntimeKind::Vllm)
+        .discover_models(
+            &switchroute_edge::discovery::http_client().unwrap(),
+            &r,
+            None,
+        )
+        .await
+        .unwrap();
+    store.replace_models(&r.id, &m).unwrap();
+    let route = store
+        .create_route("Default", "default", RouteStrategy::Priority, true)
+        .unwrap();
+    store
+        .add_target(
+            &route.id,
+            0,
+            TargetKind::Local {
+                runtime_id: r.id,
+                model_id: "good".into(),
+            },
+        )
+        .unwrap();
+    let key = create_key(&store, "test").unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server_store = store.clone();
+    tokio::spawn(async move {
+        axum::serve(
+            listener,
+            api::app(AppState {
+                store: server_store,
+                secrets: Arc::new(MemorySecretStore::default()),
+            }),
+        )
+        .await
+        .unwrap();
+    });
+    let c = reqwest::Client::new();
+    assert_eq!(
+        c.get(format!("http://{addr}/v1/models"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+    assert!(c
+        .get(format!("http://{addr}/v1/models"))
+        .bearer_auth(&key)
+        .send()
+        .await
+        .unwrap()
+        .status()
+        .is_success());
+    let response=c.post(format!("http://{addr}/v1/chat/completions")).bearer_auth(&key).json(&json!({"model":"auto","messages":[{"role":"user","content":"e2e secret prompt"}],"stream":true})).send().await.unwrap();
+    assert!(response.status().is_success());
+    assert!(response
+        .text()
+        .await
+        .unwrap()
+        .contains("\"content\":\"ok\""));
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    let reopened = Store::open(&db).unwrap();
+    assert_eq!(reopened.routes().unwrap().len(), 1);
+    assert!(!reopened
+        .raw_activity_text()
+        .unwrap()
+        .contains("e2e secret prompt"));
+}

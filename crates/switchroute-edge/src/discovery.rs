@@ -1,8 +1,89 @@
-use std::{sync::Arc,time::Duration};
+use crate::{
+    error::EdgeError,
+    models::*,
+    persistence::Store,
+    providers::{adapter, default_connections},
+    secrets::SecretStore,
+};
 use reqwest::Client;
-use crate::{error::EdgeError,models::*,persistence::Store,providers::{adapter,default_connections},secrets::SecretStore};
-pub fn http_client()->Result<Client,EdgeError>{Client::builder().connect_timeout(Duration::from_millis(800)).timeout(Duration::from_secs(8)).redirect(reqwest::redirect::Policy::none()).build().map_err(|_|EdgeError::Internal)}
-pub async fn detect_common(store:&Store,secrets:Arc<dyn SecretStore>)->Result<Vec<RuntimeConnection>,EdgeError>{let client=http_client()?;let mut found=Vec::new();let mut localai_8080=false;let mut defaults=default_connections();defaults.sort_by_key(|r|match r.kind{RuntimeKind::LocalAi=>0,RuntimeKind::LlamaCpp=>1,_=>0});for runtime in defaults{if runtime.kind==RuntimeKind::LlamaCpp&&localai_8080{continue}let a=adapter(runtime.kind);if a.probe(&client,&runtime,None).await{if runtime.kind==RuntimeKind::LocalAi{localai_8080=true}store.upsert_runtime(&runtime)?;let _=refresh_runtime_with_client(store,&client,secrets.clone(),&runtime).await;found.push(runtime);}}Ok(found)}
-pub async fn refresh_configured(store:&Store,secrets:Arc<dyn SecretStore>)->Result<Vec<(RuntimeConnection,bool)>,EdgeError>{let client=http_client()?;let mut out=Vec::new();for r in store.runtimes()?.into_iter().filter(|r|r.enabled){let secret=secret_for(&r,secrets.clone())?;let a=adapter(r.kind);let ok=a.probe(&client,&r,secret.as_deref()).await;if ok{let _=a.discover_models(&client,&r,secret.as_deref()).await.and_then(|m|store.replace_models(&r.id,&m));}else{store.replace_models(&r.id,&[])?;}out.push((r,ok));}Ok(out)}
-async fn refresh_runtime_with_client(store:&Store,client:&Client,secrets:Arc<dyn SecretStore>,r:&RuntimeConnection)->Result<(),EdgeError>{let secret=secret_for(r,secrets)?;let models=adapter(r.kind).discover_models(client,r,secret.as_deref()).await?;store.replace_models(&r.id,&models)}
-fn secret_for(r:&RuntimeConnection,secrets:Arc<dyn SecretStore>)->Result<Option<String>,EdgeError>{r.auth_secret_ref.as_deref().map(|x|secrets.get(x)).transpose()}
+use std::{sync::Arc, time::Duration};
+pub fn http_client() -> Result<Client, EdgeError> {
+    Client::builder()
+        .connect_timeout(Duration::from_millis(800))
+        .timeout(Duration::from_secs(8))
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|_| EdgeError::Internal)
+}
+pub async fn detect_common(
+    store: &Store,
+    secrets: Arc<dyn SecretStore>,
+) -> Result<Vec<RuntimeConnection>, EdgeError> {
+    let client = http_client()?;
+    let mut found = Vec::new();
+    let mut localai_8080 = false;
+    let mut defaults = default_connections();
+    defaults.sort_by_key(|r| match r.kind {
+        RuntimeKind::LocalAi => 0,
+        RuntimeKind::LlamaCpp => 1,
+        _ => 0,
+    });
+    for runtime in defaults {
+        if runtime.kind == RuntimeKind::LlamaCpp && localai_8080 {
+            continue;
+        }
+        let a = adapter(runtime.kind);
+        if a.probe(&client, &runtime, None).await {
+            if runtime.kind == RuntimeKind::LocalAi {
+                localai_8080 = true
+            }
+            store.upsert_runtime(&runtime)?;
+            let _ = refresh_runtime_with_client(store, &client, secrets.clone(), &runtime).await;
+            found.push(runtime);
+        }
+    }
+    Ok(found)
+}
+pub async fn refresh_configured(
+    store: &Store,
+    secrets: Arc<dyn SecretStore>,
+) -> Result<Vec<(RuntimeConnection, bool)>, EdgeError> {
+    let client = http_client()?;
+    let mut out = Vec::new();
+    for r in store.runtimes()?.into_iter().filter(|r| r.enabled) {
+        let secret = secret_for(&r, secrets.clone())?;
+        let a = adapter(r.kind);
+        let ok = a.probe(&client, &r, secret.as_deref()).await;
+        if ok {
+            let _ = a
+                .discover_models(&client, &r, secret.as_deref())
+                .await
+                .and_then(|m| store.replace_models(&r.id, &m));
+        } else {
+            store.replace_models(&r.id, &[])?;
+        }
+        out.push((r, ok));
+    }
+    Ok(out)
+}
+async fn refresh_runtime_with_client(
+    store: &Store,
+    client: &Client,
+    secrets: Arc<dyn SecretStore>,
+    r: &RuntimeConnection,
+) -> Result<(), EdgeError> {
+    let secret = secret_for(r, secrets)?;
+    let models = adapter(r.kind)
+        .discover_models(client, r, secret.as_deref())
+        .await?;
+    store.replace_models(&r.id, &models)
+}
+fn secret_for(
+    r: &RuntimeConnection,
+    secrets: Arc<dyn SecretStore>,
+) -> Result<Option<String>, EdgeError> {
+    r.auth_secret_ref
+        .as_deref()
+        .map(|x| secrets.get(x))
+        .transpose()
+}

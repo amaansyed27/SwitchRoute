@@ -63,10 +63,9 @@ fn sse_response(stream: ReceiverStream<Result<Bytes, io::Error>>) -> Response {
     response
         .headers_mut()
         .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
-    response.headers_mut().insert(
-        "x-accel-buffering",
-        HeaderValue::from_static("no"),
-    );
+    response
+        .headers_mut()
+        .insert("x-accel-buffering", HeaderValue::from_static("no"));
     response
 }
 

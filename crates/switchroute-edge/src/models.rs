@@ -1,16 +1,173 @@
-use std::{fmt,str::FromStr};
-use serde::{Deserialize,Serialize};
-#[derive(Debug,Clone,Copy,PartialEq,Eq,Serialize,Deserialize)]#[serde(rename_all="snake_case")]pub enum RuntimeKind{Ollama,LmStudio,Vllm,LlamaCpp,Sglang,LocalAi,FreeToken,Custom}
-impl RuntimeKind{pub const P0:[Self;8]=[Self::Ollama,Self::LmStudio,Self::Vllm,Self::LlamaCpp,Self::Sglang,Self::LocalAi,Self::FreeToken,Self::Custom];pub fn id(self)->&'static str{match self{Self::Ollama=>"ollama",Self::LmStudio=>"lmstudio",Self::Vllm=>"vllm",Self::LlamaCpp=>"llamacpp",Self::Sglang=>"sglang",Self::LocalAi=>"localai",Self::FreeToken=>"freetoken",Self::Custom=>"custom"}}pub fn display_name(self)->&'static str{match self{Self::Ollama=>"Ollama",Self::LmStudio=>"LM Studio",Self::Vllm=>"vLLM",Self::LlamaCpp=>"llama.cpp",Self::Sglang=>"SGLang",Self::LocalAi=>"LocalAI",Self::FreeToken=>"FreeToken",Self::Custom=>"Custom OpenAI-compatible"}}}
-impl fmt::Display for RuntimeKind{fn fmt(&self,f:&mut fmt::Formatter<'_>)->fmt::Result{f.write_str(self.id())}}
-impl FromStr for RuntimeKind{type Err=String;fn from_str(v:&str)->Result<Self,Self::Err>{match v.to_ascii_lowercase().replace(['-','_','.'],"").as_str(){"ollama"=>Ok(Self::Ollama),"lmstudio"=>Ok(Self::LmStudio),"vllm"=>Ok(Self::Vllm),"llamacpp"|"llamaserver"=>Ok(Self::LlamaCpp),"sglang"=>Ok(Self::Sglang),"localai"=>Ok(Self::LocalAi),"freetoken"=>Ok(Self::FreeToken),"custom"|"openai"=>Ok(Self::Custom),_=>Err(format!("unknown runtime: {v}"))}}}
-#[derive(Debug,Clone,Copy,PartialEq,Eq,Serialize,Deserialize)]#[serde(rename_all="snake_case")]pub enum ModelOrigin{Local,Cloud,Unknown}
-#[derive(Debug,Clone,Serialize,Deserialize)]pub struct RuntimeConnection{pub id:String,pub kind:RuntimeKind,pub display_name:String,pub base_url:String,pub enabled:bool,pub manual:bool,pub auth_secret_ref:Option<String>}
-#[derive(Debug,Clone,Serialize,Deserialize)]pub struct EdgeModel{pub runtime_id:String,pub runtime:RuntimeKind,pub id:String,pub display_name:String,pub origin:ModelOrigin,pub context_length:Option<u64>,pub capabilities:Vec<String>,pub loaded:Option<bool>,pub healthy:bool,pub metadata_provenance:String,pub metadata:serde_json::Value}
-#[derive(Debug,Clone,Copy,PartialEq,Eq,Serialize,Deserialize)]#[serde(rename_all="snake_case")]pub enum RouteStrategy{Priority,LocalFirst,FreeFirst}
-impl fmt::Display for RouteStrategy{fn fmt(&self,f:&mut fmt::Formatter<'_>)->fmt::Result{f.write_str(match self{Self::Priority=>"priority",Self::LocalFirst=>"local_first",Self::FreeFirst=>"free_first"})}}
-impl FromStr for RouteStrategy{type Err=String;fn from_str(v:&str)->Result<Self,Self::Err>{match v.to_ascii_lowercase().replace(['-',' '],"_").as_str(){"priority"=>Ok(Self::Priority),"local_first"=>Ok(Self::LocalFirst),"free_first"=>Ok(Self::FreeFirst),_=>Err("strategy must be priority, local_first, or free_first".into())}}}
-#[derive(Debug,Clone,Serialize,Deserialize)]pub struct EdgeRoute{pub id:String,pub name:String,pub slug:String,pub strategy:RouteStrategy,pub enabled:bool,pub is_default:bool}
-#[derive(Debug,Clone,Serialize,Deserialize)]#[serde(tag="kind",rename_all="snake_case")]pub enum TargetKind{Local{runtime_id:String,model_id:String},Cloud{base_url:String,route_slug:String,secret_ref:String}}
-#[derive(Debug,Clone,Serialize,Deserialize)]pub struct RouteTarget{pub id:String,pub route_id:String,pub position:i64,pub enabled:bool,pub target:TargetKind}
-#[derive(Debug,Clone)]pub struct ActivityRecord{pub request_id:String,pub route_id:String,pub target_label:String,pub model_id:String,pub origin:ModelOrigin,pub latency_ms:i64,pub ttft_ms:Option<i64>,pub fallback_count:i64,pub fallback_path:Vec<String>,pub status:String,pub error_category:Option<String>}
+use serde::{Deserialize, Serialize};
+use std::{fmt, str::FromStr};
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeKind {
+    Ollama,
+    LmStudio,
+    Vllm,
+    LlamaCpp,
+    Sglang,
+    LocalAi,
+    FreeToken,
+    Custom,
+}
+impl RuntimeKind {
+    pub const P0: [Self; 8] = [
+        Self::Ollama,
+        Self::LmStudio,
+        Self::Vllm,
+        Self::LlamaCpp,
+        Self::Sglang,
+        Self::LocalAi,
+        Self::FreeToken,
+        Self::Custom,
+    ];
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Ollama => "ollama",
+            Self::LmStudio => "lmstudio",
+            Self::Vllm => "vllm",
+            Self::LlamaCpp => "llamacpp",
+            Self::Sglang => "sglang",
+            Self::LocalAi => "localai",
+            Self::FreeToken => "freetoken",
+            Self::Custom => "custom",
+        }
+    }
+    pub fn display_name(self) -> &'static str {
+        match self {
+            Self::Ollama => "Ollama",
+            Self::LmStudio => "LM Studio",
+            Self::Vllm => "vLLM",
+            Self::LlamaCpp => "llama.cpp",
+            Self::Sglang => "SGLang",
+            Self::LocalAi => "LocalAI",
+            Self::FreeToken => "FreeToken",
+            Self::Custom => "Custom OpenAI-compatible",
+        }
+    }
+}
+impl fmt::Display for RuntimeKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.id())
+    }
+}
+impl FromStr for RuntimeKind {
+    type Err = String;
+    fn from_str(v: &str) -> Result<Self, Self::Err> {
+        match v.to_ascii_lowercase().replace(['-', '_', '.'], "").as_str() {
+            "ollama" => Ok(Self::Ollama),
+            "lmstudio" => Ok(Self::LmStudio),
+            "vllm" => Ok(Self::Vllm),
+            "llamacpp" | "llamaserver" => Ok(Self::LlamaCpp),
+            "sglang" => Ok(Self::Sglang),
+            "localai" => Ok(Self::LocalAi),
+            "freetoken" => Ok(Self::FreeToken),
+            "custom" | "openai" => Ok(Self::Custom),
+            _ => Err(format!("unknown runtime: {v}")),
+        }
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModelOrigin {
+    Local,
+    Cloud,
+    Unknown,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeConnection {
+    pub id: String,
+    pub kind: RuntimeKind,
+    pub display_name: String,
+    pub base_url: String,
+    pub enabled: bool,
+    pub manual: bool,
+    pub auth_secret_ref: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EdgeModel {
+    pub runtime_id: String,
+    pub runtime: RuntimeKind,
+    pub id: String,
+    pub display_name: String,
+    pub origin: ModelOrigin,
+    pub context_length: Option<u64>,
+    pub capabilities: Vec<String>,
+    pub loaded: Option<bool>,
+    pub healthy: bool,
+    pub metadata_provenance: String,
+    pub metadata: serde_json::Value,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RouteStrategy {
+    Priority,
+    LocalFirst,
+    FreeFirst,
+}
+impl fmt::Display for RouteStrategy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Priority => "priority",
+            Self::LocalFirst => "local_first",
+            Self::FreeFirst => "free_first",
+        })
+    }
+}
+impl FromStr for RouteStrategy {
+    type Err = String;
+    fn from_str(v: &str) -> Result<Self, Self::Err> {
+        match v.to_ascii_lowercase().replace(['-', ' '], "_").as_str() {
+            "priority" => Ok(Self::Priority),
+            "local_first" => Ok(Self::LocalFirst),
+            "free_first" => Ok(Self::FreeFirst),
+            _ => Err("strategy must be priority, local_first, or free_first".into()),
+        }
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EdgeRoute {
+    pub id: String,
+    pub name: String,
+    pub slug: String,
+    pub strategy: RouteStrategy,
+    pub enabled: bool,
+    pub is_default: bool,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum TargetKind {
+    Local {
+        runtime_id: String,
+        model_id: String,
+    },
+    Cloud {
+        base_url: String,
+        route_slug: String,
+        secret_ref: String,
+    },
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RouteTarget {
+    pub id: String,
+    pub route_id: String,
+    pub position: i64,
+    pub enabled: bool,
+    pub target: TargetKind,
+}
+#[derive(Debug, Clone)]
+pub struct ActivityRecord {
+    pub request_id: String,
+    pub route_id: String,
+    pub target_label: String,
+    pub model_id: String,
+    pub origin: ModelOrigin,
+    pub latency_ms: i64,
+    pub ttft_ms: Option<i64>,
+    pub fallback_count: i64,
+    pub fallback_path: Vec<String>,
+    pub status: String,
+    pub error_category: Option<String>,
+}

@@ -51,9 +51,23 @@ impl IntoResponse for EdgeError {
             Self::Secret => "Edge credential storage failed.",
             Self::Internal => "SwitchRoute Edge encountered an internal error.",
         };
-        (status, Json(json!({"error":{"message":message,"type":self.category(),"code":self.category()}}))).into_response()
+        (
+            status,
+            Json(
+                json!({"error":{"message":message,"type":self.category(),"code":self.category()}}),
+            ),
+        )
+            .into_response()
     }
 }
 
-impl From<rusqlite::Error> for EdgeError { fn from(_: rusqlite::Error) -> Self { Self::Storage } }
-impl From<reqwest::Error> for EdgeError { fn from(_: reqwest::Error) -> Self { Self::Upstream } }
+impl From<rusqlite::Error> for EdgeError {
+    fn from(_: rusqlite::Error) -> Self {
+        Self::Storage
+    }
+}
+impl From<reqwest::Error> for EdgeError {
+    fn from(_: reqwest::Error) -> Self {
+        Self::Upstream
+    }
+}

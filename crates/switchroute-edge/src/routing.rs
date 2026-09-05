@@ -1,11 +1,6 @@
 use crate::{
-    discovery::http_client,
-    error::EdgeError,
-    models::*,
-    persistence::Store,
-    providers::send_chat,
-    secrets::SecretStore,
-    streaming::commit_sse,
+    discovery::http_client, error::EdgeError, models::*, persistence::Store, providers::send_chat,
+    secrets::SecretStore, streaming::commit_sse,
 };
 use axum::{
     body::Body,
@@ -80,7 +75,9 @@ impl RouterEngine {
                 runtime_id,
                 model_id,
             } => Ok(matches!(
-                self.store.model(runtime_id, model_id)?.map(|model| model.origin),
+                self.store
+                    .model(runtime_id, model_id)?
+                    .map(|model| model.origin),
                 Some(ModelOrigin::Local)
             )),
             TargetKind::Cloud { .. } => Ok(false),
@@ -130,7 +127,9 @@ impl RouterEngine {
             }
             let mut activity = self.activity_base(&request_id, route, &target, &label, &path);
             activity.fallback_count = index as i64;
-            if let Some(response) = commit_sse(response, self.store.clone(), activity, started).await? {
+            if let Some(response) =
+                commit_sse(response, self.store.clone(), activity, started).await?
+            {
                 return Ok(response);
             }
         }
@@ -188,9 +187,7 @@ impl RouterEngine {
                 .runtime(runtime_id)?
                 .map(|runtime| runtime.kind.to_string())
                 .unwrap_or_else(|| "local".into())),
-            TargetKind::Cloud { route_slug, .. } => {
-                Ok(format!("switchroute-cloud:{route_slug}"))
-            }
+            TargetKind::Cloud { route_slug, .. } => Ok(format!("switchroute-cloud:{route_slug}")),
         }
     }
 

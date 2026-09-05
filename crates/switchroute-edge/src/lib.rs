@@ -11,7 +11,6 @@ pub mod providers;
 pub mod routing;
 pub mod secrets;
 pub mod streaming;
-use std::sync::Arc;
 use api::AppState;
 use auth::create_key;
 use config::EdgeConfig;
@@ -19,6 +18,7 @@ use discovery::{detect_common, refresh_configured};
 use error::EdgeError;
 use persistence::Store;
 use secrets::SecretStore;
+use std::sync::Arc;
 
 pub async fn run_server(
     config: EdgeConfig,
