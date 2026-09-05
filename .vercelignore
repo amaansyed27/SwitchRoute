@@ -1,4 +1,0 @@
-# Vercel Python's current uv/pyproject bundling path can produce incomplete runtime bundles.
-# CI and local development still use services/gateway/pyproject.toml; Vercel uses the
-# mirrored runtime-only services/gateway/requirements.txt instead.
-services/gateway/pyproject.toml
