@@ -40,12 +40,34 @@ class QuotaMetric:
 
     @property
     def confirmed_free_available(self) -> bool:
-        return self.capacity == "free" and self.known and not self.exhausted
+        return (
+            self.capacity == "free"
+            and self.remaining is not None
+            and self.remaining > 0
+        )
 
     def ratio(self) -> float | None:
         if self.remaining is None or self.limit is None or self.limit <= 0:
             return None
         return max(0.0, min(1.0, self.remaining / self.limit))
+
+    def reset_elapsed(self, now: datetime | None = None) -> bool:
+        if not self.reset_at:
+            return False
+        try:
+            parsed = datetime.fromisoformat(self.reset_at.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=UTC)
+        except ValueError:
+            return False
+        return parsed.astimezone(UTC) <= (now or datetime.now(UTC))
+
+    def clear_expired_remaining(self, now: datetime | None = None) -> None:
+        if self.reset_elapsed(now):
+            # A passed reset invalidates the old remaining count. Do not assume the
+            # provider reset to the full limit; make it unknown until re-observed.
+            self.remaining = None
+            self.reset_at = None
 
 
 @dataclass(slots=True)
@@ -58,6 +80,10 @@ class QuotaSnapshot:
 
     def metrics(self) -> tuple[QuotaMetric, ...]:
         return (self.rpm, self.tpm, self.rpd, self.tpd, self.concurrency)
+
+    def clear_expired(self, now: datetime | None = None) -> None:
+        for metric in self.metrics():
+            metric.clear_expired_remaining(now)
 
     @property
     def exhausted(self) -> bool:
