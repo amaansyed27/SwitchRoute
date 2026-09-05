@@ -69,6 +69,7 @@ def test_route_bound_key_exposes_auto_model_and_completes() -> None:
     models = client.get("/v1/models", headers=headers)
     assert models.status_code == 200
     assert [item["id"] for item in models.json()["data"]] == ["auto", "coding"]
+    assert models.headers["x-switchroute-route"] == "coding"
 
     response = client.post(
         "/v1/chat/completions",
@@ -78,6 +79,7 @@ def test_route_bound_key_exposes_auto_model_and_completes() -> None:
     assert response.status_code == 200
     assert response.json()["model"] == "auto"
     assert response.json()["choices"][0]["message"]["content"] == "SwitchRoute test OK"
+    assert response.headers["x-switchroute-route"] == "coding"
     assert repository.used is True
     assert repository.records[-1].status == "success"
 
@@ -97,4 +99,5 @@ def test_stream_uses_openai_sse_and_finishes_once() -> None:
     assert "SwitchRoute test OK" in response.text
     assert response.text.count("data: [DONE]") == 1
     assert '"model":"auto"' in response.text
+    assert response.headers["x-switchroute-route"] == "coding"
     assert repository.records[-1].status == "success"

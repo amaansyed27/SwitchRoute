@@ -45,34 +45,29 @@ async def test_custom_endpoint_accepts_public_https_resolution(monkeypatch) -> N
         "getaddrinfo",
         lambda *args, **kwargs: [(2, 1, 6, "", ("93.184.216.34", 443))],
     )
-    assert (
-        await provider_http.validate_public_https_url("https://models.example/v1/")
-        == "https://models.example/v1"
+    endpoint = await provider_http.resolve_public_https_url("https://models.example/v1/")
+    assert endpoint.url == "https://models.example/v1"
+    assert endpoint.addresses == ("93.184.216.34",)
+
+
+@pytest.mark.asyncio
+async def test_custom_endpoint_request_uses_prevalidated_addresses(monkeypatch) -> None:
+    monkeypatch.setattr(
+        provider_http.socket,
+        "getaddrinfo",
+        lambda *args, **kwargs: [(2, 1, 6, "", ("93.184.216.34", 443))],
     )
+    seen = []
 
+    async def pinned(method, endpoint, **kwargs):
+        seen.append(endpoint)
+        return provider_http.PinnedResponse(200, None, {"data": []}, True)
 
-class _Response:
-    def __init__(self, status: int, location: str | None = None, data=None):
-        self.status_code = status
-        self.headers = {"location": location} if location else {}
-        self._data = data or {}
-
-    def json(self):
-        return self._data
-
-
-class _Client:
-    def __init__(self, responses):
-        self.responses = responses
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *args):
-        return None
-
-    async def request(self, *args, **kwargs):
-        return self.responses.pop(0)
+    monkeypatch.setattr(provider_http, "_request_pinned", pinned)
+    status, _ = await provider_http.safe_cloud_json("GET", "https://models.example/v1/models")
+    assert status == 200
+    assert seen[0].hostname == "models.example"
+    assert seen[0].addresses == ("93.184.216.34",)
 
 
 @pytest.mark.asyncio
@@ -82,10 +77,11 @@ async def test_custom_endpoint_validates_redirect_target(monkeypatch) -> None:
         "getaddrinfo",
         lambda *args, **kwargs: [(2, 1, 6, "", ("93.184.216.34", 443))],
     )
-    responses = [_Response(302, "http://127.0.0.1/admin")]
-    monkeypatch.setattr(
-        provider_http.httpx, "AsyncClient", lambda **kwargs: _Client(responses)
-    )
+
+    async def redirect(method, endpoint, **kwargs):
+        return provider_http.PinnedResponse(302, "http://127.0.0.1/admin", None, False)
+
+    monkeypatch.setattr(provider_http, "_request_pinned", redirect)
     with pytest.raises(SwitchRouteError):
         await provider_http.safe_cloud_json("GET", "https://models.example/v1/models")
 
@@ -97,13 +93,14 @@ async def test_custom_endpoint_limits_redirects(monkeypatch) -> None:
         "getaddrinfo",
         lambda *args, **kwargs: [(2, 1, 6, "", ("93.184.216.34", 443))],
     )
-    responses = [
-        _Response(302, "https://models.example/next"),
-        _Response(302, "https://models.example/final"),
-    ]
-    monkeypatch.setattr(
-        provider_http.httpx, "AsyncClient", lambda **kwargs: _Client(responses)
-    )
+    calls = 0
+
+    async def redirect(method, endpoint, **kwargs):
+        nonlocal calls
+        calls += 1
+        return provider_http.PinnedResponse(302, f"https://models.example/{calls}", None, False)
+
+    monkeypatch.setattr(provider_http, "_request_pinned", redirect)
     with pytest.raises(SwitchRouteError, match="redirect limit"):
         await provider_http.safe_cloud_json(
             "GET", "https://models.example/v1/models", max_redirects=1

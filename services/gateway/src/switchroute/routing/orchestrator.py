@@ -7,12 +7,13 @@ from uuid import UUID, uuid4
 from switchroute.budget.cost import cost_microusd
 from switchroute.domain import Candidate, VirtualKeyContext
 from switchroute.errors import (
+    NO_ELIGIBLE_TARGET,
     PROVIDER_AUTH_ERROR,
     PROVIDER_UNAVAILABLE,
-    ROUTE_UNAVAILABLE,
     SwitchRouteError,
     classify_provider_error,
 )
+from switchroute.observability import emit_request_event
 from switchroute.quota.headers import parse_rate_limit_headers, safe_headers
 from switchroute.routing.activity import RoutingActivity
 from switchroute.routing.context import PlanCandidate, RoutingPlan
@@ -106,12 +107,26 @@ class RouteOrchestrator:
             ttft_ms=None,
             decision=decision,
         )
+        emit_request_event(
+            event="route_attempt",
+            request_id=str(request_id),
+            route=context.route_slug,
+            provider=item.candidate.provider_kind,
+            model=item.candidate.model_id,
+            latency_ms=latency_ms,
+            fallback_count=fallback_count,
+            status="error",
+            error_category=error.code,
+        )
         return error
 
     async def complete(
-        self, context: VirtualKeyContext, payload: dict[str, Any]
+        self,
+        context: VirtualKeyContext,
+        payload: dict[str, Any],
+        request_id: UUID | None = None,
     ) -> dict[str, Any]:
-        request_id = uuid4()
+        request_id = request_id or uuid4()
         await self.services.repository.mark_key_used(context.key_id)
         plan = await self.planner.plan(context, payload)
         path: list[dict[str, str]] = []
@@ -182,6 +197,19 @@ class RouteOrchestrator:
                     ttft_ms=None,
                     decision=decision,
                 )
+                emit_request_event(
+                    event="route_selected",
+                    request_id=str(request_id),
+                    route=context.route_slug,
+                    provider=item.candidate.provider_kind,
+                    model=item.candidate.model_id,
+                    latency_ms=latency_ms,
+                    fallback_count=fallback_count,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    estimated_cost_microusd=actual_cost,
+                    status="success",
+                )
                 data = object_dict(response)
                 data["model"] = "auto"
                 return data
@@ -210,13 +238,16 @@ class RouteOrchestrator:
         if last_error:
             raise last_error
         raise SwitchRouteError(
-            ROUTE_UNAVAILABLE, "No Route target had reservable capacity.", 503
+            NO_ELIGIBLE_TARGET, "No Route target had reservable capacity.", 503
         )
 
     async def stream(
-        self, context: VirtualKeyContext, payload: dict[str, Any]
+        self,
+        context: VirtualKeyContext,
+        payload: dict[str, Any],
+        request_id: UUID | None = None,
     ) -> AsyncIterator[bytes]:
-        request_id = uuid4()
+        request_id = request_id or uuid4()
         await self.services.repository.mark_key_used(context.key_id)
         plan = await self.planner.plan(context, payload)
         path: list[dict[str, str]] = []
@@ -297,7 +328,7 @@ class RouteOrchestrator:
                     await self._observe_headers(item.candidate, source)
                 fallback_count += 1
         error = last_error or SwitchRouteError(
-            ROUTE_UNAVAILABLE, "No Route target had reservable capacity.", 503
+            NO_ELIGIBLE_TARGET, "No Route target had reservable capacity.", 503
         )
         yield sse_error(error.code, error.message)
         yield sse_done()
@@ -360,9 +391,6 @@ class RouteOrchestrator:
                 actual_tokens=actual_tokens,
                 actual_cost_microusd=actual_cost,
             )
-            # Provider remaining/reset headers describe the request that just completed.
-            # Apply them after our local reservation accounting so authoritative observed
-            # values win instead of being decremented a second time.
             for source in header_sources:
                 await self._observe_headers(item.candidate, source)
             if status == "success":
@@ -395,5 +423,20 @@ class RouteOrchestrator:
                 error_category=error_category,
                 ttft_ms=ttft_ms,
                 decision=decision,
+            )
+            emit_request_event(
+                event="route_stream",
+                request_id=str(request_id),
+                route=context.route_slug,
+                provider=item.candidate.provider_kind,
+                model=item.candidate.model_id,
+                latency_ms=latency_ms,
+                ttft_ms=ttft_ms,
+                fallback_count=fallback_count,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                estimated_cost_microusd=actual_cost,
+                status=status,
+                error_category=error_category,
             )
         yield sse_done()
