@@ -28,7 +28,7 @@ impl EdgeConfig {
     pub fn validate(&self) -> Result<(), EdgeError> {
         if !self.bind.ip().is_loopback() {
             return Err(EdgeError::Invalid(
-                "Slice 3 permits only loopback Edge bindings.".into(),
+                "SwitchRoute Edge permits only loopback bindings.".into(),
             ));
         }
         Ok(())

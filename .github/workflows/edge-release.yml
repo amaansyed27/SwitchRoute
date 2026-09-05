@@ -1,0 +1,86 @@
+name: Edge release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: switchroute-edge-windows-x64.zip
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive: switchroute-edge-linux-x64.tar.gz
+          - os: macos-14
+            target: aarch64-apple-darwin
+            archive: switchroute-edge-macos-arm64.tar.gz
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            archive: switchroute-edge-macos-x64.tar.gz
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: crates/switchroute-edge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Verify release version
+        shell: bash
+        run: |
+          VERSION="$(tr -d '\r\n' < ../../VERSION)"
+          if [[ "${GITHUB_REF_TYPE:-branch}" == "tag" && "${GITHUB_REF_NAME}" != "v${VERSION}" ]]; then
+            echo "tag ${GITHUB_REF_NAME} does not match VERSION ${VERSION}" >&2
+            exit 1
+          fi
+      - run: cargo test --locked
+      - run: cargo build --locked --release --target ${{ matrix.target }}
+      - name: Package Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/switchroute-edge" dist/switchroute-edge
+          tar -C dist -czf "${{ matrix.archive }}" switchroute-edge
+          shasum -a 256 "${{ matrix.archive }}" > "${{ matrix.archive }}.sha256"
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/switchroute-edge.exe" "dist/switchroute-edge.exe"
+          Compress-Archive -Path "dist/switchroute-edge.exe" -DestinationPath "${{ matrix.archive }}" -Force
+          $hash = (Get-FileHash "${{ matrix.archive }}" -Algorithm SHA256).Hash.ToLower()
+          "$hash  ${{ matrix.archive }}" | Set-Content -NoNewline "${{ matrix.archive }}.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: edge-${{ matrix.target }}
+          path: |
+            crates/switchroute-edge/${{ matrix.archive }}
+            crates/switchroute-edge/${{ matrix.archive }}.sha256
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: edge-*
+          path: artifacts
+          merge-multiple: true
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" artifacts/* --generate-notes --verify-tag
