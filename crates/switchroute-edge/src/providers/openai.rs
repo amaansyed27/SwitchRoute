@@ -91,11 +91,19 @@ impl RuntimeAdapter for OpenAiRuntimeAdapter {
                 .get("context_length")
                 .or_else(|| item.get("max_context_length"))
                 .and_then(Value::as_u64);
-            let loaded = item.get("loaded").and_then(Value::as_bool).or_else(|| {
-                item.get("status")
-                    .and_then(Value::as_str)
-                    .map(|s| s.eq_ignore_ascii_case("loaded"))
-            });
+            let loaded = item
+                .get("loaded")
+                .and_then(Value::as_bool)
+                .or_else(|| {
+                    item.get("status")
+                        .and_then(Value::as_str)
+                        .map(|s| s.eq_ignore_ascii_case("loaded"))
+                })
+                .or_else(|| {
+                    item.get("loaded_instances")
+                        .and_then(Value::as_array)
+                        .map(|instances| !instances.is_empty())
+                });
             out.push(EdgeModel {
                 runtime_id: runtime.id.clone(),
                 runtime: self.kind,
