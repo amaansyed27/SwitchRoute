@@ -4,7 +4,6 @@ version = "0.3.0"
 edition = "2021"
 publish = false
 description = "Local SwitchRoute Edge routing daemon"
-license = "MIT"
 
 [dependencies]
 async-trait = "0.1.89"
