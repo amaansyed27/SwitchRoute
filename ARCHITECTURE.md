@@ -1,6 +1,6 @@
 # Architecture
 
-SwitchRoute is split into a product plane and a request plane.
+SwitchRoute is split into a product plane and two request planes: hosted Cloud and local Edge.
 
 ## Product plane
 
@@ -10,7 +10,7 @@ Provider identity has one authoritative source: `services/gateway/src/switchrout
 
 `provider_connections.provider_kind` is a safe-format text identifier rather than a database enum/list. Postgres enforces identifier shape; the backend registry determines whether a provider is actually supported. Provider connection metadata may store nonsecret invocation configuration such as a custom public base URL. Credentials remain separately encrypted in `private.provider_credentials`.
 
-## Request plane
+## Hosted request plane
 
 The FastAPI gateway receives an `sr_live_*` or `sr_test_*` virtual key and keeps one OpenAI-compatible API surface while routing among eligible provider/model targets.
 
@@ -18,21 +18,34 @@ The FastAPI gateway receives an `sr_live_*` or `sr_test_*` virtual key and keeps
 OpenAI SDK
   -> virtual-key authentication
   -> Route resolution
-  -> in-memory capability requirements
   -> capability / health / circuit filters
-  -> paid-policy and quota evaluation
-  -> strategy scoring / ordering
-  -> atomic capacity + budget reservation
+  -> quota, paid-policy and strategy evaluation
   -> selected credential decryption
   -> provider adapter + LiteLLM invocation
-  -> safe quota / token / latency / error observation
-  -> reservation reconciliation
-  -> bounded sanitized usage metadata
+  -> bounded sanitized routing/activity metadata
 ```
 
 Prompt, response, system-prompt, tool and upload contents are never written by routing. Credential decryption happens only after a target has been selected and capacity reserved.
 
 Fallback is permitted only before response content has started. Once a stream has emitted content, SwitchRoute never appends output from a different provider.
+
+## Edge request plane
+
+`crates/switchroute-edge` is a separate Rust daemon for local/private runtimes. It exposes an OpenAI-compatible API on `127.0.0.1:8787` by default and rejects non-loopback daemon binds in Slice 3.
+
+```text
+Local application
+  -> sr_edge_* authentication
+  -> Edge Route
+      -> Ollama / LM Studio / vLLM / llama.cpp / SGLang / LocalAI / FreeToken / custom local
+      -> hosted SwitchRoute Route (optional fallback)
+```
+
+Edge persists runtime configuration, model metadata, Routes, hash-only API keys and bounded sanitized activity in local SQLite. Runtime and hosted fallback credentials are stored through the operating-system credential store; SQLite keeps only secret references. Edge does not persist prompt/response/tool/upload content.
+
+Local/private runtime URLs are deliberately permitted in Edge. The hosted gateway retains its public-HTTPS SSRF boundary and never initiates requests to a user's localhost. Slice 3 adds no reverse tunnel, relay or LAN scan.
+
+For streaming, Edge may fall back only before the first output-bearing SSE event. Once output begins it commits to that target. `Local First` uses normalized model origin, so Ollama remote/cloud models are not treated as local/free.
 
 ## Smart-routing boundaries
 
@@ -48,27 +61,20 @@ Redis stores only hot operational state behind the `RoutingState` abstraction. P
 
 ## Provider model normalization
 
-Adapters own provider-specific credential validation, model discovery/filtering, metadata normalization, and LiteLLM naming. The normalized model record can contain provider/model ID, display name, billing tier, input/output pricing per million tokens, context window, max output, known capabilities, metadata provenance, and discovery timestamp.
-
-Unknown information stays unknown. Provider adapters do not create universal quality scores or infer unsupported pricing/capability claims.
+Adapters own provider-specific credential validation, model discovery/filtering, metadata normalization, and LiteLLM naming. Unknown information stays unknown; adapters do not invent universal quality scores or unsupported pricing/capability claims.
 
 ## Custom hosted endpoints
 
-`custom_openai` is a hosted-cloud connection type, not an Edge/local escape hatch. The gateway accepts only public HTTPS base URLs, resolves and validates DNS, rejects non-global/private/loopback/link-local/cloud-metadata destinations, disables automatic redirects, revalidates every redirect target, and limits redirect count. Discovery can use `/models`; a manual model ID is available when discovery is absent. Validation includes a fixed one-token chat compatibility probe.
+`custom_openai` is a hosted-cloud connection type, not an Edge/local escape hatch. The gateway accepts only public HTTPS base URLs, resolves and validates DNS, rejects non-global/private/loopback/link-local/cloud-metadata destinations, disables automatic redirects, revalidates every redirect target, and limits redirect count.
 
-DNS-rebinding-resistant connection pinning remains an explicit Slice 4 security-hardening item. Slice 2 does not weaken the existing validation boundary.
+DNS-rebinding-resistant connection pinning remains an explicit Slice 4 security-hardening item.
 
 ## Boundaries
 
-- `apps/web`: product UI, Supabase SSR session lifecycle, BFF forwarding.
-- `services/gateway/switchroute/auth`: caller and virtual-key authentication.
-- `services/gateway/switchroute/providers`: canonical provider catalog, validation/model discovery, normalization, custom-endpoint security, and LiteLLM naming.
-- `services/gateway/switchroute/routing`: capability-aware planning, strategy ordering, reservation-aware fallback and invocation orchestration.
-- `services/gateway/switchroute/quota`: quota evidence and safe header parsing.
-- `services/gateway/switchroute/health`: provider/model transient health, circuits and latency aggregates.
-- `services/gateway/switchroute/budget`: paid policy and cost estimation.
-- `services/gateway/switchroute/secrets`: replaceable secret-store contract.
-- `services/gateway/switchroute/storage`: persistence contracts and Postgres implementation.
-- `packages/api-contract`: generated FastAPI OpenAPI snapshot.
+- `apps/web`: product UI, Supabase SSR session lifecycle, BFF forwarding and documentation.
+- `services/gateway`: hosted Cloud management/request plane and smart routing.
+- `crates/switchroute-edge`: local/private runtime discovery, routing, OpenAI-compatible API and local persistence.
+- `packages/api-contract`: generated hosted FastAPI OpenAPI snapshot.
+- `supabase`: hosted identity and persistence schema.
 
-Edge/local routing and final release/security packaging remain Slice 3 and Slice 4 work respectively.
+Final packaging, SDK distribution, installers and release hardening remain Slice 4 work.

@@ -1,0 +1,52 @@
+# Edge / Local
+
+SwitchRoute Edge is the local request plane for routing OpenAI-compatible requests across local model runtimes, with optional fallback to a hosted SwitchRoute Route.
+
+```text
+Your app
+  -> http://127.0.0.1:8787/v1
+  -> SwitchRoute Edge
+      -> local runtime/model
+      -> local runtime/model
+      -> hosted SwitchRoute Route (optional)
+```
+
+## Supported runtimes
+
+Slice 3 supports Ollama, LM Studio, vLLM, llama.cpp, SGLang, LocalAI, FreeToken, and custom local OpenAI-compatible endpoints.
+
+Edge auto-detects the well-known loopback endpoints for supported runtimes. It does not scan your LAN and it does not expose localhost through a reverse tunnel. Custom private/LAN runtime URLs can be added manually while the Edge API itself remains loopback-only.
+
+## Start Edge
+
+```powershell
+cd crates\switchroute-edge
+cargo build --locked
+cargo run --locked -- start
+```
+
+The default API base is `http://127.0.0.1:8787/v1`. On first start Edge creates an `sr_edge_...` key and displays the plaintext once; only its hash is retained.
+
+## Route locally first
+
+Create a Route with `local_first` when a local model should be tried before the optional hosted fallback. Runtime health and discovered model origin are checked before invocation. Ollama remote/cloud models are not classified as local/free.
+
+Streaming fallback is permitted only before the first output-bearing event. Once output begins, Edge commits to that target and never splices a second model/provider into the same stream.
+
+## OpenAI SDK
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="sr_edge_...",
+    base_url="http://127.0.0.1:8787/v1",
+)
+
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello from Edge"}],
+)
+```
+
+For runtime-specific detection endpoints, model discovery, manual configuration, capabilities, and limitations, see the repository guides in `docs/edge/`.

@@ -62,8 +62,6 @@ jobs:
       - run: pip-audit --local
 
   edge:
-    permissions:
-      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -80,19 +78,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: crates/switchroute-edge
-      - run: cargo generate-lockfile
-      - run: cargo fmt
-      - name: Commit canonical Rust formatting and lockfile
-        if: matrix.os == 'ubuntu-latest' && github.ref == 'refs/heads/slice/3-edge-local'
-        shell: bash
-        run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add .
-            git commit -m "chore(edge): apply rustfmt and lock dependencies [skip ci]"
-            git push origin HEAD:slice/3-edge-local
-          fi
+      - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
       - run: cargo build --locked
