@@ -182,7 +182,9 @@ class MemoryRoutingState:
                 if actual_tokens is not None
                 else reservation.expected_tokens
             )
-            for metric in (state.quota.rpm, state.quota.rpd, state.quota.concurrency):
+            # Request-rate quotas are consumptive. Concurrency is not: the active
+            # reservation itself consumes concurrency and reconciliation releases it.
+            for metric in (state.quota.rpm, state.quota.rpd):
                 if metric.remaining is not None:
                     metric.remaining = max(0, metric.remaining - 1)
             for metric in (state.quota.tpm, state.quota.tpd):
