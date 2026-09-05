@@ -11,11 +11,13 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   python:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: sdk/python
@@ -46,6 +48,8 @@ jobs:
 
   javascript:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: sdk/javascript
