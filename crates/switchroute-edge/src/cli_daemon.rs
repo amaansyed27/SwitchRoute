@@ -1,7 +1,12 @@
-use crate::{config::EdgeConfig, discovery::http_client, error::EdgeError};
+use crate::{
+    auth::create_key,
+    config::EdgeConfig,
+    discovery::http_client,
+    error::EdgeError,
+    persistence::Store,
+};
 use std::{
-    fs::{self, File, OpenOptions},
-    net::SocketAddr,
+    fs::{self, OpenOptions},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     time::Duration,
@@ -10,6 +15,7 @@ use std::{
 fn pid_path(db: &Path) -> PathBuf {
     db.with_extension("pid")
 }
+
 fn log_path(db: &Path) -> PathBuf {
     db.with_extension("log")
 }
@@ -27,7 +33,14 @@ pub async fn healthy(url: &str) -> bool {
 }
 
 pub async fn status(url: &str) -> Result<(), EdgeError> {
-    println!("{}", if healthy(url).await { "running" } else { "stopped" });
+    println!(
+        "{}",
+        if healthy(url).await {
+            "running"
+        } else {
+            "stopped"
+        }
+    );
     Ok(())
 }
 
@@ -39,6 +52,11 @@ pub async fn start(config: &EdgeConfig) -> Result<(), EdgeError> {
     }
     if let Some(parent) = config.database_path.parent() {
         fs::create_dir_all(parent).map_err(|_| EdgeError::Storage)?;
+    }
+    let store = Store::open(&config.database_path)?;
+    if store.api_key_count()? == 0 {
+        let key = create_key(&store, "Initial local key")?;
+        println!("SwitchRoute Edge API key (shown once): {key}");
     }
     let executable = std::env::current_exe().map_err(|_| EdgeError::Internal)?;
     let log = OpenOptions::new()
@@ -87,8 +105,9 @@ pub async fn stop(db: &Path, url: &str) -> Result<(), EdgeError> {
         println!("already stopped");
         return Ok(());
     }
-    let pid = fs::read_to_string(&path)
-        .map_err(|_| EdgeError::Invalid("daemon pid file is missing; use doctor before manual cleanup".into()))?;
+    let pid = fs::read_to_string(&path).map_err(|_| {
+        EdgeError::Invalid("daemon pid file is missing; use doctor before manual cleanup".into())
+    })?;
     let pid = pid.trim();
     #[cfg(windows)]
     let status = Command::new("taskkill")
@@ -111,6 +130,3 @@ pub async fn stop(db: &Path, url: &str) -> Result<(), EdgeError> {
 pub fn daemon_files(db: &Path) -> (PathBuf, PathBuf) {
     (pid_path(db), log_path(db))
 }
-
-#[allow(dead_code)]
-fn _assert_file_send(_: File) {}
