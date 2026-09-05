@@ -2,9 +2,9 @@ import { readdir, readFile } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
 
 const root = process.cwd();
-const roots = ["apps/web/src", "packages/ui/src", "services/gateway/src"];
-const extensions = new Set([".ts", ".tsx", ".py"]);
-const ignored = new Set(["node_modules", ".next", ".venv", "__pycache__"]);
+const roots = ["apps/web/src", "packages/ui/src", "services/gateway/src", "crates/switchroute-edge/src"];
+const extensions = new Set([".ts", ".tsx", ".py", ".rs"]);
+const ignored = new Set(["node_modules", ".next", ".venv", "__pycache__", "target"]);
 let failed = false;
 
 async function walk(directory) {
