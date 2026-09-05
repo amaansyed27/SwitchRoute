@@ -5,13 +5,14 @@ use axum::{
     response::Response,
 };
 use bytes::Bytes;
-use futures_util::{stream, StreamExt};
+use futures_util::StreamExt;
 use serde_json::Value;
 use std::{io, time::Instant};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
 const PRECOMMIT_BUFFER_LIMIT: usize = 262_144;
+const STREAM_ERROR_EVENT: &[u8] = b"data: {\"error\":{\"message\":\"Selected Edge target failed after output began.\",\"type\":\"upstream_unavailable\",\"code\":\"upstream_unavailable\"}}\n\ndata: [DONE]\n\n";
 
 pub async fn commit_sse(
     response: reqwest::Response,
@@ -33,16 +34,29 @@ pub async fn commit_sse(
             activity.ttft_ms = Some(started.elapsed().as_millis() as i64);
             let (tx, rx) = mpsc::channel::<Result<Bytes, io::Error>>(16);
             tokio::spawn(async move {
-                let stream = stream::iter(buffered.into_iter().map(Ok::<Bytes, io::Error>))
-                    .chain(upstream.map(|r| r.map_err(io::Error::other)));
-                tokio::pin!(stream);
-                while let Some(item) = stream.next().await {
-                    if tx.send(item).await.is_err() {
-                        break;
+                for bytes in buffered {
+                    if tx.send(Ok(bytes)).await.is_err() {
+                        mark_failure(&mut activity, "client_disconnected");
+                        finish_activity(&store, &mut activity, started);
+                        return;
                     }
                 }
-                activity.latency_ms = started.elapsed().as_millis() as i64;
-                let _ = store.record_activity(&activity);
+                while let Some(item) = upstream.next().await {
+                    match item {
+                        Ok(bytes) => {
+                            if tx.send(Ok(bytes)).await.is_err() {
+                                mark_failure(&mut activity, "client_disconnected");
+                                break;
+                            }
+                        }
+                        Err(_) => {
+                            mark_failure(&mut activity, "upstream_unavailable");
+                            let _ = tx.send(Ok(Bytes::from_static(STREAM_ERROR_EVENT))).await;
+                            break;
+                        }
+                    }
+                }
+                finish_activity(&store, &mut activity, started);
             });
             return Ok(Some(sse_response(ReceiverStream::new(rx))));
         }
@@ -51,6 +65,16 @@ pub async fn commit_sse(
         }
     }
     Ok(None)
+}
+
+fn mark_failure(activity: &mut ActivityRecord, category: &str) {
+    activity.status = "error".into();
+    activity.error_category = Some(category.into());
+}
+
+fn finish_activity(store: &Store, activity: &mut ActivityRecord, started: Instant) {
+    activity.latency_ms = started.elapsed().as_millis() as i64;
+    let _ = store.record_activity(activity);
 }
 
 fn sse_response(stream: ReceiverStream<Result<Bytes, io::Error>>) -> Response {
