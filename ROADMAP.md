@@ -13,14 +13,21 @@ Supabase-backed identity/persistence, encrypted provider credentials, Routes, ro
 - SSRF-hardened custom hosted endpoint support.
 - Provider consistency, mocked discovery/invocation, persistence, streaming/fallback, RLS, and credential-security coverage.
 
-## Slice 2 — Routing intelligence
+## Slice 2 — Smart Routing
 
-Planned, not implemented by Slice 1.8:
+Implemented on `slice/2-smart-routing` for review:
 
-- Redis-backed live routing state.
-- Quota-aware strategy.
-- Cheapest, Fastest, and Balanced strategies.
-- Circuit breakers, concurrency reservations, and advanced budgets.
+- Redis-compatible hot routing state behind a vendor-neutral abstraction plus deterministic in-memory tests/local mode.
+- Explicit quota provenance/confidence and conservative unknown-data behavior.
+- Atomic request/token/concurrency and paid-budget reservations with TTL/reconciliation.
+- Capability filtering before provider invocation.
+- Priority, Free First, Quota Aware, Fastest, Cheapest, and Balanced strategies.
+- Server-enforced paid fallback and optional daily paid cap.
+- Provider/model transient health, circuit breakers, request-latency EWMA and streaming TTFT.
+- Known-cost usage calculation and bounded routing-decision metadata.
+- Dashboard, Routes and Activity visibility for routing health/reasons without content retention.
+
+`Auto` is intentionally not included because the explicit strategies provide clearer policy and auditability.
 
 ## Slice 3 — SwitchRoute Edge
 
@@ -28,4 +35,4 @@ Planned first-class local/provider runtime support for at least Ollama, LM Studi
 
 ## Slice 4 — Release surface
 
-Packaging/release work such as npm/PyPI SDK distribution and final release hardening remains later work.
+Packaging/release work such as npm/PyPI SDK distribution and final release hardening remains later work. The security review also includes stronger DNS-rebinding-resistant connection pinning for custom hosted endpoints.

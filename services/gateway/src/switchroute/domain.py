@@ -1,11 +1,6 @@
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
-
-
-def discovered_now() -> str:
-    return datetime.now(UTC).isoformat()
 
 
 @dataclass(slots=True)
@@ -19,7 +14,7 @@ class ProviderModel:
     max_output_tokens: int | None = None
     capabilities: list[str] = field(default_factory=lambda: ["chat"])
     metadata_provenance: str = "unknown"
-    discovered_at: str = field(default_factory=discovered_now)
+    discovered_at: str | None = None
 
 
 @dataclass(slots=True)
@@ -30,6 +25,11 @@ class Candidate:
     model_id: str
     billing_tier: str
     position: int
+    capabilities: tuple[str, ...] = ("chat", "streaming")
+    metadata_provenance: str = "unknown"
+    input_price_per_million_usd: float | None = None
+    output_price_per_million_usd: float | None = None
+    connection_status: str = "healthy"
 
 
 @dataclass(slots=True)
@@ -42,6 +42,8 @@ class VirtualKeyContext:
     strategy: str
     route_enabled: bool
     candidates: list[Candidate]
+    paid_fallback: str = "after_free"
+    daily_paid_cap_microusd: int | None = None
 
 
 @dataclass(slots=True)
@@ -49,7 +51,7 @@ class UsageRecord:
     request_id: UUID
     workspace_id: UUID
     route_id: UUID
-    virtual_key_id: UUID
+    virtual_key_id: UUID | None
     provider_connection_id: UUID | None
     provider_kind: str | None
     model_id: str | None
@@ -60,6 +62,6 @@ class UsageRecord:
     fallback_count: int
     error_category: str | None = None
     estimated_cost_microusd: int | None = None
-
-
-JsonObject = dict[str, Any]
+    ttft_ms: int | None = None
+    paid_routing: bool = False
+    routing_decision: dict[str, Any] = field(default_factory=dict)

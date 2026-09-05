@@ -26,13 +26,7 @@ async def create_key(
           returning id,workspace_id,route_id,environment,name,prefix,status,last_used_at,expires_at,created_at
         )
         select inserted.*,r.name route_name from inserted join public.routes r on r.id=inserted.route_id""",
-        workspace_id,
-        route_id,
-        environment,
-        name,
-        prefix,
-        key_hash,
-        expires_at,
+        workspace_id, route_id, environment, name, prefix, key_hash, expires_at,
     )
     if not row:
         raise SwitchRouteError(ROUTE_NOT_FOUND, "Route not found.", 404)
@@ -53,34 +47,57 @@ async def list_keys(pool: asyncpg.Pool, workspace_id: UUID) -> list[dict[str, An
 async def revoke_key(pool: asyncpg.Pool, workspace_id: UUID, key_id: UUID) -> None:
     result = await pool.execute(
         "update public.virtual_api_keys set status='revoked',revoked_at=now() where id=$1 and workspace_id=$2 and status='active'",
-        key_id,
-        workspace_id,
+        key_id, workspace_id,
     )
     if result == "UPDATE 0":
         raise SwitchRouteError("key_not_found", "Active key not found.", 404)
 
 
-async def route_candidates(
-    pool: asyncpg.Pool, workspace_id: UUID, route_id: UUID
-) -> list[Candidate]:
+def _candidate(row: asyncpg.Record) -> Candidate:
+    data = record_dict(row)
+    metadata = data.pop("metadata", {}) or {}
+    models = metadata.get("models", []) if isinstance(metadata, dict) else []
+    model = next((item for item in models if isinstance(item, dict) and item.get("id") == data["model_id"]), {})
+    capabilities = set(model.get("capabilities") or ["chat"])
+    capabilities.add("chat")
+    # Hosted adapters in Slice 1.8 have a tested LiteLLM streaming path. Arbitrary custom
+    # endpoints remain conservative unless their discovered metadata explicitly says streaming.
+    if data["provider_kind"] != "custom_openai":
+        capabilities.add("streaming")
+    billing_tier = model.get("billing_tier") or data["billing_tier"]
+    return Candidate(
+        target_id=data["target_id"],
+        provider_connection_id=data["provider_connection_id"],
+        provider_kind=data["provider_kind"],
+        model_id=data["model_id"],
+        billing_tier=billing_tier,
+        position=data["position"],
+        capabilities=tuple(sorted(capabilities)),
+        metadata_provenance=str(model.get("metadata_provenance") or "unknown"),
+        input_price_per_million_usd=model.get("input_price_per_million_usd"),
+        output_price_per_million_usd=model.get("output_price_per_million_usd"),
+        connection_status=data["connection_status"],
+    )
+
+
+async def route_candidates(pool: asyncpg.Pool, workspace_id: UUID, route_id: UUID) -> list[Candidate]:
     rows = await pool.fetch(
         """select t.id target_id,t.provider_connection_id,p.provider_kind,t.model_id,
-        t.billing_tier,t.position
+        t.billing_tier,t.position,p.status connection_status,p.metadata
         from public.route_targets t
         join public.provider_connections p on p.id=t.provider_connection_id
         join private.provider_credentials c on c.provider_connection_id=p.id
-        where t.route_id=$1 and t.enabled and p.workspace_id=$2 and p.status='healthy'
+        where t.route_id=$1 and t.enabled and p.workspace_id=$2 and p.status <> 'invalid'
         order by t.position""",
-        route_id,
-        workspace_id,
+        route_id, workspace_id,
     )
-    return [Candidate(**record_dict(row)) for row in rows]
+    return [_candidate(row) for row in rows]
 
 
 async def resolve_virtual_key(pool: asyncpg.Pool, key_hash: str) -> VirtualKeyContext | None:
     row = await pool.fetchrow(
         """select k.id key_id,k.workspace_id,k.route_id,r.name route_name,r.slug route_slug,
-        r.strategy,r.enabled route_enabled
+        r.strategy,r.enabled route_enabled,r.paid_fallback,r.daily_paid_cap_microusd
         from public.virtual_api_keys k join public.routes r on r.id=k.route_id
         where k.key_hash=$1 and k.status='active' and r.enabled
           and (k.expires_at is null or k.expires_at>now())""",
@@ -94,7 +111,4 @@ async def resolve_virtual_key(pool: asyncpg.Pool, key_hash: str) -> VirtualKeyCo
 
 
 async def mark_key_used(pool: asyncpg.Pool, key_id: UUID) -> None:
-    await pool.execute(
-        "update public.virtual_api_keys set last_used_at=now() where id=$1",
-        key_id,
-    )
+    await pool.execute("update public.virtual_api_keys set last_used_at=now() where id=$1", key_id)

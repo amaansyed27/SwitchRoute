@@ -31,6 +31,18 @@ jobs:
 
   gateway:
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      REDIS_TEST_URL: redis://localhost:6379/15
     defaults:
       run:
         working-directory: services/gateway
@@ -41,6 +53,7 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
       - run: pip install -e ".[dev]" pip-audit
+      - run: python -c "import tomllib, pathlib; local=tomllib.loads(pathlib.Path('pyproject.toml').read_text()); root=tomllib.loads(pathlib.Path('../../pyproject.toml').read_text()); assert sorted(local['project']['dependencies']) == sorted(root['project']['dependencies']), 'root pyproject.toml must mirror services/gateway runtime dependencies'"
       - run: ruff check --config pyproject.toml src tests ../../scripts/export_openapi.py
       - run: pyright
       - run: pytest -q

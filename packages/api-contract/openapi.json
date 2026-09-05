@@ -231,6 +231,18 @@
       },
       "RouteWrite": {
         "properties": {
+          "daily_paid_cap_microusd": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Paid Cap Microusd"
+          },
           "enabled": {
             "default": true,
             "title": "Enabled",
@@ -240,6 +252,16 @@
             "maxLength": 80,
             "minLength": 1,
             "title": "Name",
+            "type": "string"
+          },
+          "paid_fallback": {
+            "default": "after_free",
+            "enum": [
+              "never",
+              "after_free",
+              "allowed"
+            ],
+            "title": "Paid Fallback",
             "type": "string"
           },
           "slug": {
@@ -252,7 +274,11 @@
             "default": "priority",
             "enum": [
               "priority",
-              "free_first"
+              "free_first",
+              "quota_aware",
+              "fastest",
+              "cheapest",
+              "balanced"
             ],
             "title": "Strategy",
             "type": "string"
@@ -318,9 +344,9 @@
     }
   },
   "info": {
-    "description": "OpenAI-compatible routing gateway for SwitchRoute Cloud Core.",
+    "description": "OpenAI-compatible intelligent capacity router for SwitchRoute.",
     "title": "SwitchRoute Gateway",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "openapi": "3.1.0",
   "paths": {

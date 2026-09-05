@@ -46,40 +46,31 @@ class PostgresRepository:
         return await provider_store.list_providers(self._require_pool(), workspace_id)
 
     async def create_provider(
-        self,
-        workspace_id: UUID,
-        kind: str,
-        name: str,
-        metadata: dict,
-        encrypted_secret: str,
-        key_id: str,
+        self, workspace_id: UUID, kind: str, name: str, metadata: dict, encrypted_secret: str, key_id: str
     ) -> dict[str, Any]:
         return await provider_store.create_provider(
-            self._require_pool(),
-            workspace_id,
-            kind,
-            name,
-            metadata,
-            encrypted_secret,
-            key_id,
+            self._require_pool(), workspace_id, kind, name, metadata, encrypted_secret, key_id
         )
 
     async def provider_secret(
         self, workspace_id: UUID, provider_id: UUID
     ) -> tuple[str, str, str, dict[str, Any]]:
-        return await provider_store.provider_secret(
-            self._require_pool(), workspace_id, provider_id
-        )
+        return await provider_store.provider_secret(self._require_pool(), workspace_id, provider_id)
 
     async def update_provider_health(
-        self,
-        workspace_id: UUID,
-        provider_id: UUID,
-        status: str,
-        metadata: dict,
+        self, workspace_id: UUID, provider_id: UUID, status: str, metadata: dict
     ) -> None:
         await provider_store.update_provider_health(
             self._require_pool(), workspace_id, provider_id, status, metadata
+        )
+
+    async def mark_provider_attention(self, workspace_id: UUID, provider_id: UUID) -> None:
+        await self._require_pool().execute(
+            """update public.provider_connections
+            set status='invalid',updated_at=now()
+            where id=$1 and workspace_id=$2""",
+            provider_id,
+            workspace_id,
         )
 
     async def delete_provider(self, workspace_id: UUID, provider_id: UUID) -> None:
@@ -96,9 +87,12 @@ class PostgresRepository:
         strategy: str,
         enabled: bool,
         targets: list[dict],
+        paid_fallback: str,
+        daily_paid_cap_microusd: int | None,
     ) -> dict[str, Any]:
         return await route_store.create_route(
-            self._require_pool(), workspace_id, name, slug, strategy, enabled, targets
+            self._require_pool(), workspace_id, name, slug, strategy, enabled, targets,
+            paid_fallback, daily_paid_cap_microusd,
         )
 
     async def update_route(
@@ -110,16 +104,12 @@ class PostgresRepository:
         strategy: str,
         enabled: bool,
         targets: list[dict],
+        paid_fallback: str,
+        daily_paid_cap_microusd: int | None,
     ) -> dict[str, Any]:
         return await route_store.update_route(
-            self._require_pool(),
-            workspace_id,
-            route_id,
-            name,
-            slug,
-            strategy,
-            enabled,
-            targets,
+            self._require_pool(), workspace_id, route_id, name, slug, strategy, enabled, targets,
+            paid_fallback, daily_paid_cap_microusd,
         )
 
     async def delete_route(self, workspace_id: UUID, route_id: UUID) -> None:
@@ -136,14 +126,7 @@ class PostgresRepository:
         expires_at: str | None,
     ) -> dict[str, Any]:
         return await keys_store.create_key(
-            self._require_pool(),
-            workspace_id,
-            route_id,
-            environment,
-            name,
-            prefix,
-            key_hash,
-            expires_at,
+            self._require_pool(), workspace_id, route_id, environment, name, prefix, key_hash, expires_at
         )
 
     async def list_keys(self, workspace_id: UUID) -> list[dict[str, Any]]:
@@ -161,7 +144,8 @@ class PostgresRepository:
     async def record_usage(self, record: UsageRecord) -> None:
         await usage_store.record_usage(self._require_pool(), record)
 
-    async def activity(
-        self, workspace_id: UUID, limit: int = 50
-    ) -> list[dict[str, Any]]:
+    async def paid_spend_today(self, workspace_id: UUID, route_id: UUID) -> int:
+        return await usage_store.paid_spend_today(self._require_pool(), workspace_id, route_id)
+
+    async def activity(self, workspace_id: UUID, limit: int = 50) -> list[dict[str, Any]]:
         return await usage_store.activity(self._require_pool(), workspace_id, limit)

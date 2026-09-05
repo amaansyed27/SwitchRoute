@@ -12,9 +12,7 @@ def _target_provider_ids(targets: list[dict]) -> list[UUID]:
 
 
 async def _validate_target_ownership(
-    conn: asyncpg.Connection,
-    workspace_id: UUID,
-    targets: list[dict],
+    conn: asyncpg.Connection, workspace_id: UUID, targets: list[dict]
 ) -> list[UUID]:
     provider_ids = _target_provider_ids(targets)
     owned = await conn.fetch(
@@ -24,18 +22,13 @@ async def _validate_target_ownership(
     )
     if len(owned) != len(set(provider_ids)):
         raise SwitchRouteError(
-            "invalid_route",
-            "Every Route target must use a provider from this workspace.",
-            400,
+            "invalid_route", "Every Route target must use a provider from this workspace.", 400
         )
     return provider_ids
 
 
 async def _replace_targets(
-    conn: asyncpg.Connection,
-    route_id: UUID,
-    targets: list[dict],
-    provider_ids: list[UUID],
+    conn: asyncpg.Connection, route_id: UUID, targets: list[dict], provider_ids: list[UUID]
 ) -> None:
     await conn.execute("delete from public.route_targets where route_id=$1", route_id)
     for position, (target, provider_id) in enumerate(zip(targets, provider_ids, strict=True)):
@@ -52,8 +45,7 @@ async def _replace_targets(
 
 async def list_routes(pool: asyncpg.Pool, workspace_id: UUID) -> list[dict[str, Any]]:
     routes = await pool.fetch(
-        "select * from public.routes where workspace_id=$1 order by created_at",
-        workspace_id,
+        "select * from public.routes where workspace_id=$1 order by created_at", workspace_id
     )
     result: list[dict[str, Any]] = []
     for route in routes:
@@ -77,16 +69,16 @@ async def create_route(
     strategy: str,
     enabled: bool,
     targets: list[dict],
+    paid_fallback: str,
+    daily_paid_cap_microusd: int | None,
 ) -> dict[str, Any]:
     async with pool.acquire() as conn, conn.transaction():
         provider_ids = await _validate_target_ownership(conn, workspace_id, targets)
         row = await conn.fetchrow(
-            "insert into public.routes(workspace_id,name,slug,strategy,enabled) values($1,$2,$3,$4,$5) returning *",
-            workspace_id,
-            name,
-            slug,
-            strategy,
-            enabled,
+            """insert into public.routes(
+            workspace_id,name,slug,strategy,enabled,paid_fallback,daily_paid_cap_microusd
+            ) values($1,$2,$3,$4,$5,$6,$7) returning *""",
+            workspace_id, name, slug, strategy, enabled, paid_fallback, daily_paid_cap_microusd,
         )
         if row is None:
             raise SwitchRouteError("invalid_route", "Route creation failed.", 500)
@@ -103,18 +95,16 @@ async def update_route(
     strategy: str,
     enabled: bool,
     targets: list[dict],
+    paid_fallback: str,
+    daily_paid_cap_microusd: int | None,
 ) -> dict[str, Any]:
     async with pool.acquire() as conn, conn.transaction():
         provider_ids = await _validate_target_ownership(conn, workspace_id, targets)
         row = await conn.fetchrow(
-            """update public.routes set name=$3,slug=$4,strategy=$5,enabled=$6,updated_at=now()
+            """update public.routes set name=$3,slug=$4,strategy=$5,enabled=$6,
+            paid_fallback=$7,daily_paid_cap_microusd=$8,updated_at=now()
             where id=$1 and workspace_id=$2 returning *""",
-            route_id,
-            workspace_id,
-            name,
-            slug,
-            strategy,
-            enabled,
+            route_id, workspace_id, name, slug, strategy, enabled, paid_fallback, daily_paid_cap_microusd,
         )
         if row is None:
             raise SwitchRouteError(ROUTE_NOT_FOUND, "Route not found.", 404)
@@ -125,15 +115,11 @@ async def update_route(
 async def delete_route(pool: asyncpg.Pool, workspace_id: UUID, route_id: UUID) -> None:
     try:
         result = await pool.execute(
-            "delete from public.routes where id=$1 and workspace_id=$2",
-            route_id,
-            workspace_id,
+            "delete from public.routes where id=$1 and workspace_id=$2", route_id, workspace_id
         )
     except asyncpg.ForeignKeyViolationError as exc:
         raise SwitchRouteError(
-            "route_in_use",
-            "Revoke and remove this Route's API keys before deleting it.",
-            409,
+            "route_in_use", "Revoke and remove this Route's API keys before deleting it.", 409
         ) from exc
     if result == "DELETE 0":
         raise SwitchRouteError(ROUTE_NOT_FOUND, "Route not found.", 404)
