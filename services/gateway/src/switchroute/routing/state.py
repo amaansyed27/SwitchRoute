@@ -83,6 +83,7 @@ class MemoryRoutingState:
     async def snapshot(self, key: str) -> TargetState:
         async with self._lock:
             state = self._targets.setdefault(key, TargetState())
+            state.quota.clear_expired()
             self._breaker.before_probe(state.health)
             return copy.deepcopy(state)
 
@@ -126,6 +127,7 @@ class MemoryRoutingState:
             now = time.time()
             self._cleanup(now)
             state = self._targets.setdefault(key, TargetState())
+            state.quota.clear_expired()
             self._breaker.before_probe(state.health)
             if state.health.circuit_state is CircuitState.OPEN:
                 return None
