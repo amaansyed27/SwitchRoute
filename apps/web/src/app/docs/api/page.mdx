@@ -1,0 +1,161 @@
+# API
+
+Hosted base URL:
+
+```text
+https://api.switchroute.dawnlightlabs.com/v1
+```
+
+SwitchRoute intentionally implements the OpenAI-compatible surface it can support correctly. The public compatibility contract currently includes:
+
+- `POST /v1/chat/completions`
+- `GET /v1/models`
+
+`/v1/responses` is not advertised or implemented. Do not assume compatibility with an endpoint that is not present in the checked-in OpenAPI contract.
+
+## Authentication
+
+Send a SwitchRoute virtual key as bearer authentication:
+
+```text
+Authorization: Bearer sr_live_...
+```
+
+The key is bound to one Route. Use `model="auto"` or that Route's slug.
+
+## cURL
+
+```bash
+curl https://api.switchroute.dawnlightlabs.com/v1/chat/completions \
+  -H "Authorization: Bearer sr_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"model":"auto","messages":[{"role":"user","content":"Hello"}]}'
+```
+
+## PowerShell
+
+```powershell
+$headers = @{
+  Authorization = "Bearer sr_live_..."
+  "Content-Type" = "application/json"
+}
+
+$body = @{
+  model = "auto"
+  messages = @(@{ role = "user"; content = "Hello" })
+} | ConvertTo-Json -Depth 5
+
+Invoke-RestMethod `
+  -Uri "https://api.switchroute.dawnlightlabs.com/v1/chat/completions" `
+  -Method Post `
+  -Headers $headers `
+  -Body $body
+```
+
+## JavaScript fetch
+
+```ts
+const response = await fetch(
+  "https://api.switchroute.dawnlightlabs.com/v1/chat/completions",
+  {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer sr_live_...",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "auto",
+      messages: [{ role: "user", content: "Hello" }],
+    }),
+  },
+);
+
+if (!response.ok) throw new Error(await response.text());
+console.log(await response.json());
+```
+
+Do not embed a live SwitchRoute key in browser JavaScript. Call from a trusted server unless you intentionally accept credential exposure.
+
+## Python httpx
+
+```python
+import httpx
+
+response = httpx.post(
+    "https://api.switchroute.dawnlightlabs.com/v1/chat/completions",
+    headers={"Authorization": "Bearer sr_live_..."},
+    json={
+        "model": "auto",
+        "messages": [{"role": "user", "content": "Hello"}],
+    },
+    timeout=60,
+)
+response.raise_for_status()
+print(response.json())
+```
+
+## Standard OpenAI Python SDK
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="sr_live_...",
+    base_url="https://api.switchroute.dawnlightlabs.com/v1",
+)
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+)
+```
+
+## Standard OpenAI JavaScript SDK
+
+```ts
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: "sr_live_...",
+  baseURL: "https://api.switchroute.dawnlightlabs.com/v1",
+});
+
+const response = await client.chat.completions.create({
+  model: "auto",
+  messages: [{ role: "user", content: "Hello" }],
+});
+```
+
+## Streaming
+
+Set `stream: true`. The response is `text/event-stream` and uses OpenAI-style `data:` events ending with `data: [DONE]`.
+
+Fallback is permitted only before output begins. If a selected upstream fails after any content has been emitted, SwitchRoute ends the stream with a normalized failure instead of splicing another model's answer into the same response.
+
+## Models
+
+`GET /v1/models` returns `auto` and the Route slug available to the authenticated virtual key.
+
+## Response headers
+
+SwitchRoute may return:
+
+- `X-SwitchRoute-Request-ID` — request correlation UUID. You may send an `X-Request-ID` UUID to preserve a client-generated correlation ID.
+- `X-SwitchRoute-Route` — Route slug selected by the virtual key.
+
+Prompts and completions are not placed in these headers or in operational logs.
+
+## Errors
+
+Errors use an OpenAI-shaped body:
+
+```json
+{
+  "error": {
+    "message": "No eligible Route target is currently available.",
+    "type": "route_unavailable",
+    "code": "route_unavailable"
+  }
+}
+```
+
+See [API errors](/docs/api-errors) for normalized codes and safe retry guidance.

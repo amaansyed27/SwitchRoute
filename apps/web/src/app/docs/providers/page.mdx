@@ -1,8 +1,8 @@
 # Providers
 
-Slice 1.8 supports **17 hosted connection types** through one gateway-owned provider catalog. The web app reads that catalog from `GET /manage/provider-catalog`; provider identity is not maintained as a second frontend list.
+SwitchRoute supports **17 hosted connection types** through one gateway-owned canonical provider catalog. The web application reads that catalog from the gateway; provider identity is not maintained as a second frontend list.
 
-## Direct
+## Direct providers
 
 - [OpenAI](/docs/providers/openai)
 - [Anthropic](/docs/providers/anthropic)
@@ -12,7 +12,7 @@ Slice 1.8 supports **17 hosted connection types** through one gateway-owned prov
 - [DeepSeek](/docs/providers/deepseek)
 - [Cohere](/docs/providers/cohere)
 
-## Inference
+## Inference platforms
 
 - [Groq](/docs/providers/groq)
 - [Cerebras](/docs/providers/cerebras)
@@ -22,7 +22,7 @@ Slice 1.8 supports **17 hosted connection types** through one gateway-owned prov
 - [Fireworks AI](/docs/providers/fireworks)
 - [DeepInfra](/docs/providers/deepinfra)
 
-## Gateways
+## Gateways and custom cloud
 
 - [OpenRouter](/docs/providers/openrouter)
 - [Hugging Face Inference Providers](/docs/providers/huggingface)
@@ -30,14 +30,27 @@ Slice 1.8 supports **17 hosted connection types** through one gateway-owned prov
 
 ## Connection lifecycle
 
+Every provider guide documents the same operational questions: where to obtain the credential, permissions/credential type, encrypted storage, model discovery, quota/rate-limit evidence, known limitations, and disconnection.
+
+The general lifecycle is:
+
 1. Choose a provider from the gateway catalog.
-2. Enter the credential and any provider-specific connection fields.
-3. Test the credential and discover/normalize models.
+2. Enter its credential and provider-specific connection fields.
+3. Test the credential and discover/normalize available models.
 4. Save only after validation succeeds.
-5. Use any discovered model as a Route target.
-6. Re-test later to refresh provider health and model metadata.
-7. Disconnect after removing the provider from Routes that reference it.
+5. Add discovered models to Routes.
+6. Re-test when credentials/models change or health needs refresh.
+7. Remove Route references before disconnecting the provider.
 
-Saved credentials are encrypted by the gateway and stored in the private Postgres credential path. The browser can read provider identity, health, connection-safe metadata, and discovered models, but never the decrypted key.
+Saved credentials are encrypted by the gateway and stored outside the browser-readable schema. The browser receives only provider identity, safe connection metadata, health, and discovered model metadata.
 
-Model metadata is evidence-based. Missing pricing, context, maximum output, or capability data remains `unknown`; SwitchRoute does not invent a quality score.
+## Metadata and routing evidence
+
+Pricing, quota, context limits, output limits, and capabilities are used only when SwitchRoute has evidence for them. Missing information remains `unknown`.
+
+- Unknown price is never treated as free.
+- Unknown quota is never treated as unlimited.
+- Unknown latency does not automatically win Fastest.
+- A `free_capable` label does not prove currently available free capacity.
+
+Provider-specific rate-limit headers and catalog data are normalized with provenance/confidence where possible. See [Routes](/docs/routes) for strategy semantics.

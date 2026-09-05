@@ -1,17 +1,26 @@
 # API errors
 
-SwitchRoute normalizes failures so provider-specific error bodies do not leak into clients or logs.
+SwitchRoute returns a stable normalized error code in both `error.type` and `error.code`. Raw provider response bodies are not forwarded because they can contain request content or provider secrets.
 
-| Code | Meaning |
-| --- | --- |
-| `authentication_error` | Missing, invalid, expired, or revoked SwitchRoute key |
-| `route_not_found` | Referenced Route does not exist |
-| `route_unavailable` | No target could begin the request |
-| `provider_auth_error` | Upstream provider rejected its credential |
-| `provider_rate_limited` | Upstream provider returned a rate limit |
-| `provider_timeout` | Upstream provider timed out |
-| `provider_unavailable` | Provider could not serve the request |
-| `unsupported_capability` | Route cannot satisfy the requested capability |
-| `invalid_request` | Request or product configuration is invalid |
+| Code | Meaning | Typical action |
+| --- | --- | --- |
+| `authentication_error` | SwitchRoute virtual key is missing, invalid, expired, or revoked | Check the key and Route binding; do not retry unchanged credentials |
+| `route_not_found` | The key refers to a Route that no longer exists | Create/use a valid key |
+| `route_unavailable` | Route exists but no target is currently eligible | Inspect provider health, paid fallback, quota, and Route targets |
+| `no_eligible_target` | Routing produced no safe target in a context that distinguishes this condition | Inspect Route eligibility metadata |
+| `provider_auth_error` | Selected provider rejected its saved credential | Reconnect or rotate the provider credential |
+| `provider_rate_limited` | Upstream returned a rate-limit condition | Respect retry/reset information where available; SwitchRoute may fall back before output begins |
+| `provider_timeout` | Upstream timed out | Retry with normal backoff; inspect provider health |
+| `provider_unavailable` | Upstream is unavailable or returned a transient failure | Retry/back off; circuit state may temporarily exclude it |
+| `quota_exhausted` | All otherwise eligible targets have known exhausted capacity | Wait for reset or add capacity/targets |
+| `budget_exceeded` | Enforced Route budget cannot permit a target | Raise/remove the cap or add a target with enforceable cost |
+| `unsupported_capability` | No target has confirmed support for requested capabilities | Use a compatible Route/model set |
+| `malformed_upstream_response` | Upstream response or stream could not be safely normalized | Inspect provider/runtime health; raw body is intentionally not exposed |
+| `invalid_request` | Request shape, model selector, or endpoint configuration is invalid | Correct the request; usually do not retry unchanged |
+| `configuration_error` | SwitchRoute server-side configuration is incomplete | Operator action required |
 
-Raw provider error bodies are deliberately not retained or returned because they can echo request content.
+A response also carries `X-SwitchRoute-Request-ID`. Include that ID when reporting a failure; it allows correlation with content-free operational logs without sharing the prompt.
+
+## Streaming failures
+
+Before any output is emitted, a retryable target failure may cause fallback. After output starts, SwitchRoute never joins a second model's content into the existing stream. Mid-stream failures terminate the stream with a normalized error and reconcile the selected target's reservation.

@@ -1,20 +1,48 @@
-# JavaScript example
+# JavaScript / TypeScript SDK
 
-```javascript
-import OpenAI from "openai";
+`@switchroute/sdk` is TypeScript-first and intentionally thin. It covers SwitchRoute chat completions, streaming, models, typed errors, and timeouts without reproducing the entire OpenAI SDK.
 
-const client = new OpenAI({
-  apiKey: process.env.SWITCHROUTE_API_KEY,
-  baseURL: "https://api.switchroute.dawnlightlabs.com/v1",
-});
+## Install
 
-const stream = await client.chat.completions.create({
+```powershell
+npm install @switchroute/sdk
+```
+
+Packages are published only through the explicit SDK release workflow. Until a public release exists, use the reviewed package tarball from a release artifact rather than assuming npm contains the package.
+
+## Client
+
+```ts
+import { SwitchRoute } from "@switchroute/sdk";
+
+const client = new SwitchRoute({ apiKey: "sr_live_..." });
+const response = await client.chat.completions.create({
   model: "auto",
   messages: [{ role: "user", content: "Hello" }],
-  stream: true,
 });
+```
 
-for await (const chunk of stream) {
-  process.stdout.write(chunk.choices[0]?.delta?.content ?? "");
+## Streaming
+
+```ts
+for await (const event of client.chat.completions.stream({
+  model: "auto",
+  messages: [{ role: "user", content: "Hello" }],
+})) {
+  console.log(event);
 }
 ```
+
+## Models
+
+```ts
+const models = await client.models.list();
+```
+
+## Server/browser boundary
+
+A live SwitchRoute key is a server credential. The SDK rejects browser use by default so a key is not accidentally shipped in client-side JavaScript. Keep SwitchRoute calls in a trusted server environment. Explicit browser override is only for environments where exposing the key is an intentional security decision.
+
+The default base URL is `https://api.switchroute.dawnlightlabs.com/v1` and can be overridden for self-hosted/development endpoints.
+
+The official OpenAI JavaScript SDK also works directly; see [API](/docs/api).

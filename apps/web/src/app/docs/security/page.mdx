@@ -1,15 +1,65 @@
-# Security and zero prompt retention
+# Security and privacy
 
-SwitchRoute separates credential material from user-visible product data.
+SwitchRoute is designed around a strict content boundary: **prompts, completions, system prompts, tool payloads, uploads, and raw upstream bodies are not retained by SwitchRoute**.
 
-Provider keys are encrypted with AES-256-GCM in Slice 1 and stored in a private Postgres schema. The application depends on a `SecretStore` contract so a KMS/envelope implementation can replace it later. Decrypted provider keys are used only inside the gateway during provider operations.
+## What is retained
 
-Virtual SwitchRoute keys are shown once and stored only as a prefix plus keyed hash.
+Operational records may contain only bounded metadata required to route, explain, meter, and debug requests:
 
-## Content that is not persisted
+- request ID and timestamp
+- Route and virtual-key identifiers
+- selected provider/model
+- latency and TTFT
+- input/output token counts when available
+- estimated cost
+- fallback count
+- normalized failure category
+- routing strategy and safe eligibility reasons
+- circuit state and quota provenance/confidence
 
-SwitchRoute does not persist prompts, completions, system prompts, tool arguments/results, uploads, authorization headers, provider API keys, or arbitrary upstream error bodies.
+There are no prompt or response columns in `request_usage`.
 
-## Operational metadata that may be persisted
+## Hosted provider credentials
 
-Request/workspace/Route identifiers, selected provider/model, token counts, latency, status, fallback count, normalized error category, estimated cost when known, and timestamps.
+The browser submits credentials to the gateway over the authenticated management path. The gateway validates them, encrypts them before persistence, and stores the ciphertext in the non-public `private.provider_credentials` schema. Saved plaintext credentials are never returned to the browser.
+
+Development may use the environment-backed AES-GCM master-key backend. Production can use the KMS-wrapped data-key backend: KMS unwraps a 32-byte data-encryption key at process startup, then individual provider credentials remain AES-GCM encrypted. Previous key IDs can remain decrypt-only during a rotation window.
+
+Credentials and Authorization headers must never be logged.
+
+## Custom hosted endpoints
+
+Custom hosted OpenAI-compatible endpoints must use HTTPS. SwitchRoute rejects loopback, private, link-local, metadata, and otherwise non-public addresses. DNS is resolved and validated before connection, and the connection is pinned to the validated address while preserving the original hostname for TLS verification. Redirect destinations are independently resolved and validated before following them.
+
+This prevents the usual validate-one-DNS-answer/connect-to-another DNS-rebinding gap.
+
+## Edge credentials
+
+Edge stores local/runtime secrets in the operating-system credential store. SQLite stores only references and key hashes. Edge defaults to loopback and does not expose a hosted reverse tunnel into the machine.
+
+## RLS and workspace isolation
+
+User-facing tables use Supabase Row Level Security for workspace isolation. Provider ciphertext lives in the intentionally non-public `private` schema and is accessed by the gateway through its direct database connection, not from the browser.
+
+The production security checklist still requires reviewing Supabase Security Advisor before each release. If an advisor reports a private-schema table with RLS disabled, verify schema exposure and grants before changing it; enabling RLS without matching gateway policies can deny the gateway while adding no meaningful browser boundary.
+
+## Logging
+
+Gateway logs are structured and content-free. Request IDs are propagated through `X-SwitchRoute-Request-ID`. Raw upstream error bodies are not included in client errors or activity records because providers can echo request content.
+
+## CORS
+
+Hosted CORS origins are explicit configuration. Credentials are not enabled for cross-origin cookies. Browser applications should not hold live SwitchRoute virtual keys; keep API calls on a trusted server.
+
+## Automated checks
+
+CI includes:
+
+- RLS/pgTAP database tests
+- a zero-retention contract check
+- gitleaks
+- dependency audits
+- OpenAPI drift checking
+- gateway and Edge security regression tests
+
+See the repository `SECURITY.md` and threat model for implementation-level reporting and production requirements.
