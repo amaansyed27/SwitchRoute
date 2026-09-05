@@ -192,11 +192,9 @@ class RedisRoutingState:
                         if actual_tokens is not None
                         else reservation.expected_tokens
                     )
-                    for metric in (
-                        state.quota.rpm,
-                        state.quota.rpd,
-                        state.quota.concurrency,
-                    ):
+                    # Request-rate quotas are consumptive. Concurrency is represented by
+                    # the live reservation set and is released when this reservation is removed.
+                    for metric in (state.quota.rpm, state.quota.rpd):
                         if metric.remaining is not None:
                             metric.remaining = max(0, metric.remaining - 1)
                     for metric in (state.quota.tpm, state.quota.tpd):
