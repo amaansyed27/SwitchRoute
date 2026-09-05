@@ -7,7 +7,7 @@ use axum::{
     Json, Router,
 };
 use bytes::Bytes;
-use futures_util::stream;
+use futures_util::{stream, StreamExt};
 use serde_json::{json, Value};
 use std::{
     io,
@@ -88,13 +88,16 @@ async fn mock_chat(State(state): State<MockState>, Json(value): Json<Value>) -> 
         return (StatusCode::OK, "this is not JSON").into_response();
     }
     if model == "broken" && streaming {
-        let chunks = vec![
+        let first = stream::once(async {
             Ok::<Bytes, io::Error>(Bytes::from_static(
                 b"data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n",
-            )),
-            Err(io::Error::other("simulated transport failure")),
-        ];
-        let mut response = Response::new(Body::from_stream(stream::iter(chunks)));
+            ))
+        });
+        let failure = stream::once(async {
+            tokio::time::sleep(Duration::from_millis(75)).await;
+            Err::<Bytes, io::Error>(io::Error::other("simulated transport failure"))
+        });
+        let mut response = Response::new(Body::from_stream(first.chain(failure)));
         response.headers_mut().insert(
             header::CONTENT_TYPE,
             HeaderValue::from_static("text/event-stream"),
