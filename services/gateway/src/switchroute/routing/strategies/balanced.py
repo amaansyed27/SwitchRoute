@@ -12,7 +12,11 @@ def _normalize(values: list[float | None], invert: bool = False) -> list[float]:
         if value is None:
             score = 0.35
         elif span == 0:
+            # A known signal should still beat an unknown one when all observed
+            # candidates are equal on that dimension.
             score = 1.0
+            result.append(score)
+            continue
         else:
             score = (value - low) / span
         result.append(1 - score if invert and value is not None else score)
