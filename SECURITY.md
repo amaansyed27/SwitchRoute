@@ -36,7 +36,7 @@ SwitchRoute Edge is local-first and deliberately has a different outbound trust 
 - private/LAN runtime endpoints may be configured manually because reaching private inference servers is Edge's purpose;
 - Edge API keys use `sr_edge_` plaintext presented once and SHA-256 hash-only local persistence;
 - runtime and hosted fallback secrets are stored through the operating-system credential store, while SQLite stores references only;
-- prompts, completions, system prompts, tool contents, uploads, Authorization headers and raw upstream responses are not persisted;
+- prompts, completions, system prompts, tool contents, uploads, Authorization headers and raw inference responses are not persisted;
 - request activity is bounded and sanitized;
 - upstream redirects are disabled by the Edge HTTP client;
 - streaming target switches are permitted only before output begins.
@@ -47,6 +47,6 @@ A hosted SwitchRoute fallback target carries only the hosted SwitchRoute Route/A
 
 Slice 4 retains final packaging/signing review and stronger DNS-rebinding-resistant connection pinning for custom hosted endpoints.
 
-The live Supabase security advisor currently reports RLS disabled on `private.provider_credentials`. That table is outside the exposed public schema and is intentionally gateway-owned; do not enable RLS blindly without matching gateway-access policies and a migration/test review.
+Run Supabase security and performance advisors as part of release review rather than encoding transient advisor output as an architecture invariant. `private.provider_credentials` is outside the exposed public schema and is intentionally gateway-owned; any future RLS change there must include matching gateway-access policies, migrations, and tests rather than being applied blindly.
 
 See `docs/security/threat-model.md`, `docs/security/zero-retention.md`, and `docs/edge/security.md`.
