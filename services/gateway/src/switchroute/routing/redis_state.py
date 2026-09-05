@@ -57,6 +57,7 @@ class RedisRoutingState:
                 for name in ("rpm", "tpm", "rpd", "tpd", "concurrency")
             }
         )
+        quota.clear_expired()
         health = HealthSnapshot(**data.get("health", {}))
         return TargetState(quota=quota, health=health)
 
