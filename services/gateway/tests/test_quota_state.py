@@ -69,6 +69,55 @@ async def test_atomic_reservation_prevents_double_consuming_one_remaining() -> N
 
 
 @pytest.mark.asyncio
+async def test_concurrency_is_reserved_in_flight_and_released_after_reconcile() -> None:
+    state = MemoryRoutingState()
+    key = "provider:model"
+    await state.observe_quota(
+        key,
+        [QuotaObservation("concurrency", limit=1, remaining=1, source="observed")],
+    )
+    first = await state.reserve(
+        key=key,
+        route_key="route",
+        expected_tokens=10,
+        expected_cost_microusd=None,
+        paid=False,
+        daily_paid_cap_microusd=None,
+        durable_paid_spend_microusd=0,
+    )
+    assert first is not None
+    blocked = await state.reserve(
+        key=key,
+        route_key="route",
+        expected_tokens=10,
+        expected_cost_microusd=None,
+        paid=False,
+        daily_paid_cap_microusd=None,
+        durable_paid_spend_microusd=0,
+    )
+    assert blocked is None
+
+    await state.reconcile(
+        first,
+        attempted=True,
+        actual_tokens=3,
+        actual_cost_microusd=None,
+    )
+    snapshot = await state.snapshot(key)
+    assert snapshot.quota.concurrency.remaining == 1
+    again = await state.reserve(
+        key=key,
+        route_key="route",
+        expected_tokens=10,
+        expected_cost_microusd=None,
+        paid=False,
+        daily_paid_cap_microusd=None,
+        durable_paid_spend_microusd=0,
+    )
+    assert again is not None
+
+
+@pytest.mark.asyncio
 async def test_reservation_ttl_releases_capacity() -> None:
     state = MemoryRoutingState()
     key = "provider:model"
