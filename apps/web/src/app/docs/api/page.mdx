@@ -18,16 +18,19 @@ SwitchRoute intentionally implements the OpenAI-compatible surface it can suppor
 Send a SwitchRoute virtual key as bearer authentication:
 
 ```text
-Authorization: Bearer sr_live_...
+Authorization: Bearer <SWITCHROUTE_API_KEY>
 ```
 
 The key is bound to one Route. Use `model="auto"` or that Route's slug.
 
 ## cURL
 
+Set the key in your shell first, then keep it out of command history where possible:
+
 ```bash
+export SWITCHROUTE_API_KEY="<your SwitchRoute key>"
 curl https://api.switchroute.dawnlightlabs.com/v1/chat/completions \
-  -H "Authorization: Bearer sr_live_..." \
+  -H "Authorization: Bearer ${SWITCHROUTE_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{"model":"auto","messages":[{"role":"user","content":"Hello"}]}'
 ```
@@ -35,8 +38,9 @@ curl https://api.switchroute.dawnlightlabs.com/v1/chat/completions \
 ## PowerShell
 
 ```powershell
+$env:SWITCHROUTE_API_KEY = "<your SwitchRoute key>"
 $headers = @{
-  Authorization = "Bearer sr_live_..."
+  Authorization = "Bearer $env:SWITCHROUTE_API_KEY"
   "Content-Type" = "application/json"
 }
 
@@ -60,7 +64,7 @@ const response = await fetch(
   {
     method: "POST",
     headers: {
-      Authorization: "Bearer sr_live_...",
+      Authorization: `Bearer ${process.env.SWITCHROUTE_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -79,11 +83,12 @@ Do not embed a live SwitchRoute key in browser JavaScript. Call from a trusted s
 ## Python httpx
 
 ```python
+import os
 import httpx
 
 response = httpx.post(
     "https://api.switchroute.dawnlightlabs.com/v1/chat/completions",
-    headers={"Authorization": "Bearer sr_live_..."},
+    headers={"Authorization": f"Bearer {os.environ['SWITCHROUTE_API_KEY']}"},
     json={
         "model": "auto",
         "messages": [{"role": "user", "content": "Hello"}],
@@ -97,10 +102,11 @@ print(response.json())
 ## Standard OpenAI Python SDK
 
 ```python
+import os
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="sr_live_...",
+    api_key=os.environ["SWITCHROUTE_API_KEY"],
     base_url="https://api.switchroute.dawnlightlabs.com/v1",
 )
 response = client.chat.completions.create(
@@ -115,7 +121,7 @@ response = client.chat.completions.create(
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: "sr_live_...",
+  apiKey: process.env.SWITCHROUTE_API_KEY,
   baseURL: "https://api.switchroute.dawnlightlabs.com/v1",
 });
 

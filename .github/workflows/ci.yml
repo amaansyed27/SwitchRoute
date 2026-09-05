@@ -90,17 +90,20 @@ jobs:
 
   javascript-sdk:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/javascript
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --prefix sdk/javascript
-      - run: npm test --prefix sdk/javascript
-      - run: npm pack --dry-run --prefix sdk/javascript
-      - run: npm audit --prefix sdk/javascript --audit-level=high
-      - run: npm install --prefix tests/compat
-      - run: node tests/compat/openai_js.mjs
+      - run: npm install
+      - run: npm test
+      - run: npm pack --dry-run
+      - run: npm audit --audit-level=high
+      - run: npm install --prefix ../../tests/compat
+      - run: node ../../tests/compat/openai_js.mjs
 
   edge:
     strategy:

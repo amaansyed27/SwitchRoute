@@ -17,16 +17,16 @@ jobs:
         include:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            archive: switchroute-edge-windows-x64.zip
+            asset: windows-x64
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            archive: switchroute-edge-linux-x64.tar.gz
+            asset: linux-x64
           - os: macos-14
             target: aarch64-apple-darwin
-            archive: switchroute-edge-macos-arm64.tar.gz
+            asset: macos-arm64
           - os: macos-15-intel
             target: x86_64-apple-darwin
-            archive: switchroute-edge-macos-x64.tar.gz
+            asset: macos-x64
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -50,25 +50,32 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
+          VERSION="$(tr -d '\r\n' < ../../VERSION)"
+          ARCHIVE="switchroute-edge-${VERSION}-${{ matrix.asset }}.tar.gz"
           mkdir -p dist
           cp "target/${{ matrix.target }}/release/switchroute-edge" dist/switchroute-edge
-          tar -C dist -czf "${{ matrix.archive }}" switchroute-edge
-          shasum -a 256 "${{ matrix.archive }}" > "${{ matrix.archive }}.sha256"
+          tar -C dist -czf "$ARCHIVE" switchroute-edge
+          shasum -a 256 "$ARCHIVE" > "$ARCHIVE.sha256"
       - name: Package Windows
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          $version = (Get-Content ../../VERSION -Raw).Trim()
+          $archive = "switchroute-edge-$version-${{ matrix.asset }}.zip"
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item "target/${{ matrix.target }}/release/switchroute-edge.exe" "dist/switchroute-edge.exe"
-          Compress-Archive -Path "dist/switchroute-edge.exe" -DestinationPath "${{ matrix.archive }}" -Force
-          $hash = (Get-FileHash "${{ matrix.archive }}" -Algorithm SHA256).Hash.ToLower()
-          "$hash  ${{ matrix.archive }}" | Set-Content -NoNewline "${{ matrix.archive }}.sha256"
+          Compress-Archive -Path "dist/switchroute-edge.exe" -DestinationPath $archive -Force
+          $hash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()
+          "$hash  $archive" | Set-Content -NoNewline "$archive.sha256"
       - uses: actions/upload-artifact@v4
         with:
           name: edge-${{ matrix.target }}
           path: |
-            crates/switchroute-edge/${{ matrix.archive }}
-            crates/switchroute-edge/${{ matrix.archive }}.sha256
+            crates/switchroute-edge/switchroute-edge-*.zip
+            crates/switchroute-edge/switchroute-edge-*.zip.sha256
+            crates/switchroute-edge/switchroute-edge-*.tar.gz
+            crates/switchroute-edge/switchroute-edge-*.tar.gz.sha256
+          if-no-files-found: error
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
