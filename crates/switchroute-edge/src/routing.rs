@@ -101,7 +101,12 @@ impl RouterEngine {
             if !response.status().is_success() {
                 continue;
             }
-            let body: Value = response.json().await.map_err(|_| EdgeError::Upstream)?;
+            let Ok(body) = response.json::<Value>().await else {
+                continue;
+            };
+            if body.get("choices").and_then(Value::as_array).is_none() {
+                continue;
+            }
             let mut activity = self.activity_base(&request_id, route, &target, &label, &path);
             activity.latency_ms = started.elapsed().as_millis() as i64;
             activity.fallback_count = index as i64;
