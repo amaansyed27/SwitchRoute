@@ -237,6 +237,7 @@ class RouteOrchestrator:
             started = time.perf_counter()
             attempted = False
             buffered: list[Any] = []
+            header_sources: list[object] = []
             try:
                 secret, connection = await self._credential(context, item.candidate)
                 attempted = True
@@ -249,7 +250,7 @@ class RouteOrchestrator:
                 )
                 async for chunk in iterator:
                     buffered.append(chunk)
-                    await self._observe_headers(item.candidate, chunk)
+                    header_sources.append(chunk)
                     if chunk_has_content(chunk):
                         ttft_ms = int((time.perf_counter() - started) * 1000)
                         async for part in self._selected_stream(
@@ -260,6 +261,7 @@ class RouteOrchestrator:
                             reservation=reservation,
                             iterator=iterator,
                             buffered=buffered,
+                            header_sources=header_sources,
                             started=started,
                             ttft_ms=ttft_ms,
                             fallback_count=fallback_count,
@@ -275,6 +277,8 @@ class RouteOrchestrator:
                     actual_tokens=None,
                     actual_cost_microusd=None,
                 )
+                for source in header_sources:
+                    await self._observe_headers(item.candidate, source)
                 raise
             except Exception as exc:
                 last_error = await self._failed_attempt(
@@ -289,6 +293,8 @@ class RouteOrchestrator:
                     fallback_count=fallback_count,
                     path=path,
                 )
+                for source in header_sources:
+                    await self._observe_headers(item.candidate, source)
                 fallback_count += 1
         error = last_error or SwitchRouteError(
             ROUTE_UNAVAILABLE, "No Route target had reservable capacity.", 503
@@ -306,6 +312,7 @@ class RouteOrchestrator:
         reservation,
         iterator,
         buffered: list[Any],
+        header_sources: list[object],
         started: float,
         ttft_ms: int,
         fallback_count: int,
@@ -322,7 +329,7 @@ class RouteOrchestrator:
                 output_tokens = seen_output if seen_output is not None else output_tokens
                 yield sse_data(normalized_chunk(chunk))
             async for chunk in iterator:
-                await self._observe_headers(item.candidate, chunk)
+                header_sources.append(chunk)
                 seen_input, seen_output = usage_from(chunk)
                 input_tokens = seen_input if seen_input is not None else input_tokens
                 output_tokens = seen_output if seen_output is not None else output_tokens
@@ -335,7 +342,7 @@ class RouteOrchestrator:
             error = classify_provider_error(exc)
             status = "error"
             error_category = error.code
-            await self._observe_headers(item.candidate, exc)
+            header_sources.append(exc)
             yield sse_error(error.code, error.message)
         finally:
             latency_ms = int((time.perf_counter() - started) * 1000)
@@ -353,6 +360,11 @@ class RouteOrchestrator:
                 actual_tokens=actual_tokens,
                 actual_cost_microusd=actual_cost,
             )
+            # Provider remaining/reset headers describe the request that just completed.
+            # Apply them after our local reservation accounting so authoritative observed
+            # values win instead of being decremented a second time.
+            for source in header_sources:
+                await self._observe_headers(item.candidate, source)
             if status == "success":
                 await self.state.observe_success(
                     target_key(item.candidate), latency_ms, ttft_ms
