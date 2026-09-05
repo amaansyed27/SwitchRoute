@@ -16,7 +16,7 @@ def main() -> None:
     parser.add_argument("--output", default="packages/api-contract/openapi.json")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    rendered = json.dumps(app.openapi(), indent=2, sort_keys=True) + "\n"
+    rendered = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":")) + "\n"
     output = ROOT / args.output
     if args.check:
         if not output.exists() or output.read_text(encoding="utf-8") != rendered:
