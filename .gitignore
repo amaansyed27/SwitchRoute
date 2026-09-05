@@ -22,6 +22,9 @@ venv/
 .coverage
 htmlcov/
 
+# Rust
+**/target/
+
 # Supabase
 supabase/.branches/
 supabase/.temp/
