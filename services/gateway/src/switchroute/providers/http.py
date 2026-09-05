@@ -7,7 +7,7 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import aiohttp
 import httpx
-from aiohttp.abc import AbstractResolver
+from aiohttp.abc import AbstractResolver, ResolveResult
 
 from switchroute.errors import (
     INVALID_REQUEST,
@@ -87,25 +87,28 @@ class _StaticResolver(AbstractResolver):
         self.endpoint = endpoint
 
     async def resolve(
-        self, host: str, port: int = 0, family: int = socket.AF_INET
-    ) -> list[dict[str, Any]]:
+        self,
+        host: str,
+        port: int = 0,
+        family: socket.AddressFamily = socket.AF_INET,
+    ) -> list[ResolveResult]:
         if host.rstrip(".").lower() != self.endpoint.hostname:
             raise OSError("resolver host mismatch")
-        results: list[dict[str, Any]] = []
+        results: list[ResolveResult] = []
         for address in self.endpoint.addresses:
             parsed = ipaddress.ip_address(address.split("%", 1)[0])
             result_family = socket.AF_INET6 if parsed.version == 6 else socket.AF_INET
             if family not in (socket.AF_UNSPEC, result_family):
                 continue
             results.append(
-                {
-                    "hostname": host,
-                    "host": address,
-                    "port": port or self.endpoint.port,
-                    "family": result_family,
-                    "proto": 0,
-                    "flags": 0,
-                }
+                ResolveResult(
+                    hostname=host,
+                    host=address,
+                    port=port or self.endpoint.port,
+                    family=result_family,
+                    proto=0,
+                    flags=0,
+                )
             )
         if not results:
             raise OSError("no pinned address for requested family")
@@ -119,7 +122,9 @@ def _validate_ip(value: str) -> None:
     try:
         address = ipaddress.ip_address(value.split("%", 1)[0])
     except ValueError as exc:
-        raise SwitchRouteError(INVALID_REQUEST, "Custom endpoint resolved to an invalid IP.", 400) from exc
+        raise SwitchRouteError(
+            INVALID_REQUEST, "Custom endpoint resolved to an invalid IP.", 400
+        ) from exc
     if address in _BLOCKED_IPS or not address.is_global:
         raise SwitchRouteError(
             INVALID_REQUEST,
@@ -288,7 +293,9 @@ async def safe_cloud_stream(
                 raise classify_provider_error(ProviderResponseError(status))
             data_lines: list[str] = []
             async for raw_line in response.content:
-                for line in raw_line.decode("utf-8", errors="strict").replace("\r\n", "\n").split("\n"):
+                for line in (
+                    raw_line.decode("utf-8", errors="strict").replace("\r\n", "\n").split("\n")
+                ):
                     if not line:
                         if data_lines:
                             data = "\n".join(data_lines)
