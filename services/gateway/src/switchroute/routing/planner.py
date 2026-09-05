@@ -7,8 +7,8 @@ from switchroute.budget.policy import BudgetPolicy, is_free_candidate, paid_poli
 from switchroute.domain import VirtualKeyContext
 from switchroute.errors import (
     BUDGET_EXCEEDED,
-    NO_ELIGIBLE_TARGET,
     QUOTA_EXHAUSTED,
+    ROUTE_UNAVAILABLE,
     UNSUPPORTED_CAPABILITY,
     SwitchRouteError,
 )
@@ -139,14 +139,14 @@ class RoutingPlanner:
                     "All eligible Route targets have exhausted known quota.",
                     429,
                 )
-            if reasons and reasons <= {"paid_fallback_disabled", "budget_unknown_cost"}:
+            if reasons and reasons <= {"budget_unknown_cost"}:
                 raise SwitchRouteError(
                     BUDGET_EXCEEDED,
-                    "Route budget or paid-fallback policy excludes every target.",
+                    "Route budget excludes every target because cost is unknown.",
                     402,
                 )
             raise SwitchRouteError(
-                NO_ELIGIBLE_TARGET,
+                ROUTE_UNAVAILABLE,
                 "No eligible Route target is currently available.",
                 503,
             )

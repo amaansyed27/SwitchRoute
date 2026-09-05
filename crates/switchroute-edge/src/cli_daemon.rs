@@ -1,8 +1,5 @@
 use crate::{
-    auth::create_key,
-    config::EdgeConfig,
-    discovery::http_client,
-    error::EdgeError,
+    auth::create_key, config::EdgeConfig, discovery::http_client, error::EdgeError,
     persistence::Store,
 };
 use std::{

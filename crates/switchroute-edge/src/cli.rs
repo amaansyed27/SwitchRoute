@@ -1,6 +1,5 @@
 use crate::{
-    cli_daemon,
-    cli_offline,
+    cli_daemon, cli_offline,
     config::EdgeConfig,
     error::EdgeError,
     run_server,

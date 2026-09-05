@@ -232,8 +232,18 @@ async fn route(
             cloud_route,
             position,
             secret_env,
-        } => add_cloud(store, secrets, &route, &base_url, &cloud_route, position, &secret_env),
-        RouteCommand::Target { target_id, enabled } => store.set_target_enabled(&target_id, enabled),
+        } => add_cloud(
+            store,
+            secrets,
+            &route,
+            &base_url,
+            &cloud_route,
+            position,
+            &secret_env,
+        ),
+        RouteCommand::Target { target_id, enabled } => {
+            store.set_target_enabled(&target_id, enabled)
+        }
     }
 }
 
@@ -247,9 +257,8 @@ fn add_cloud(
     secret_env: &str,
 ) -> Result<(), EdgeError> {
     let route = find_route(store, route)?;
-    let value = std::env::var(secret_env).map_err(|_| {
-        EdgeError::Invalid(format!("environment variable {secret_env} is not set"))
-    })?;
+    let value = std::env::var(secret_env)
+        .map_err(|_| EdgeError::Invalid(format!("environment variable {secret_env} is not set")))?;
     let secret_ref = format!("cloud:{}:{}", route.id, Uuid::new_v4());
     secrets.put(&secret_ref, &value)?;
     let base_url = endpoint::validate_runtime_url(base_url)?;
@@ -302,11 +311,7 @@ fn key(command: KeyCommand, store: &Store) -> Result<(), EdgeError> {
     }
 }
 
-async fn doctor(
-    store: &Store,
-    db: &Path,
-    secrets: Arc<dyn SecretStore>,
-) -> Result<(), EdgeError> {
+async fn doctor(store: &Store, db: &Path, secrets: Arc<dyn SecretStore>) -> Result<(), EdgeError> {
     println!("database: ok ({})", db.display());
     let (pid, log) = cli_daemon::daemon_files(db);
     println!("daemon pid file: {}", pid.display());
