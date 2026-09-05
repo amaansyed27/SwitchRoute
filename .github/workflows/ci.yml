@@ -61,6 +61,28 @@ jobs:
       - run: python -c "import json; d=json.load(open('../../packages/api-contract/openapi.json')); assert '/v1/chat/completions' in d['paths']; assert '/v1/models' in d['paths']"
       - run: pip-audit --local
 
+  edge:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: crates/switchroute-edge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/switchroute-edge
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      - run: cargo build
+
   database:
     runs-on: ubuntu-latest
     steps:
