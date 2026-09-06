@@ -28,6 +28,12 @@ SwitchRoute supports **17 hosted connection types** through one gateway-owned ca
 - [Hugging Face Inference Providers](/docs/providers/huggingface)
 - [Custom OpenAI-compatible cloud endpoint](/docs/providers/custom-openai)
 
+## Multiple accounts for one provider
+
+A workspace can connect more than one API key/account for the same provider. Give each connection a useful name such as `Groq primary` and `Groq backup`, then add both to the same Waterfall/Route if desired.
+
+Each Route target references the **provider connection**, not only the provider type. Quota, latency, health, circuit-breaker and capacity state are therefore isolated per connection/model. For example, exhausting `Groq primary` does not mark `Groq backup` as exhausted; the Route can fall through to the second key normally.
+
 ## Connection lifecycle
 
 Every provider guide documents the same operational questions: where to obtain the credential, permissions/credential type, encrypted storage, model discovery, quota/rate-limit evidence, known limitations, and disconnection.
