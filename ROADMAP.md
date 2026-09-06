@@ -48,7 +48,7 @@ Implemented on `main`.
 
 ## Slice 4 — Release Hardening
 
-Implemented on `slice/4-release-hardening` and awaiting release review before merge or public-beta promotion.
+Implemented as the final development slice. After the reviewed Slice 4 candidate is merged, the planned four-slice SwitchRoute product implementation is code-complete; public publishing and production promotion remain deliberate release-operator actions.
 
 ### SDKs
 
@@ -71,6 +71,7 @@ Implemented on `slice/4-release-hardening` and awaiting release review before me
 - custom-endpoint SSRF protections with DNS validation and connection pinning.
 - versioned provider-credential encryption keys with optional AWS KMS-wrapped production data keys.
 - stable OpenAI-shaped error taxonomy and docs.
+- multiple credential connections for the same provider; Waterfalls/Routes may use two or more API keys from one provider as independent targets with separate quota/health state.
 
 ### Quality gates
 
@@ -88,13 +89,14 @@ Implemented on `slice/4-release-hardening` and awaiting release review before me
 - API and SDK docs, Edge docs, security docs, production runbooks and rollback procedures.
 - changelog, release process, compatibility matrix and explicit repository license status.
 
-### Remaining public-beta release gates
+### Public-beta release-operator gates
 
-The release-hardening code and CI implementation are complete. The remaining work is operational evidence, deployment verification, and release policy rather than missing routing/product code.
+These are external/credentialed operations rather than missing product code and must remain explicit instead of being faked by a branch merge.
 
-- record measured load-test thresholds against the real deployment and tune from evidence.
-- perform a production deploy + rollback drill and a database restore drill before making public trust claims.
-- configure release credentials/trusted publishing and exercise the SDK/Edge release workflows without publishing unintended artifacts.
-- make an explicit repository license decision before third-party distribution.
-- attach the production web/API domains to verified deployments and verify deep links, authentication callbacks, cookies, and browser-to-gateway behavior.
-- review current Supabase security/performance advisors and resolve any launch-blocking findings that apply to the production plan and architecture.
+- attach `switchroute.dawnlightlabs.com` and `api.switchroute.dawnlightlabs.com` to verified web/gateway production deployments and verify TLS, auth callbacks, cookies, deep links and browser-to-gateway behavior;
+- enable Supabase leaked-password protection if password authentication remains available;
+- run and record measured load tests against the intended production environment, plus deployment rollback and database restore drills;
+- configure production Redis and the selected credential-encryption backend (AWS KMS-wrapped data key is supported) and retain rotation material safely;
+- configure PyPI trusted publishing/npm credentials and exercise SDK publishing only when a release is intentionally approved;
+- choose a repository software license before third-party distribution; no license is inferred automatically;
+- supply signing/notarization credentials if signed Windows/macOS Edge artifacts are required. Unsigned artifacts must remain clearly labelled.
