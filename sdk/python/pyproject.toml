@@ -8,11 +8,19 @@ version = "0.4.0"
 description = "Thin Python SDK for the SwitchRoute OpenAI-compatible API"
 readme = "README.md"
 requires-python = ">=3.10"
+license = "Apache-2.0"
 dependencies = ["httpx>=0.27,<1"]
 classifiers = [
+  "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3",
   "Typing :: Typed",
 ]
+
+[project.urls]
+Homepage = "https://switchroute.dawnlightlabs.com"
+Documentation = "https://switchroute.dawnlightlabs.com/docs"
+Repository = "https://github.com/amaansyed27/SwitchRoute"
+Issues = "https://github.com/amaansyed27/SwitchRoute/issues"
 
 [project.optional-dependencies]
 dev = [
