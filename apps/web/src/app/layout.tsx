@@ -9,7 +9,7 @@ const themeBootstrap = `(() => { try { const saved = localStorage.getItem("switc
 
 export const metadata: Metadata = {
   title: { default: "SwitchRoute", template: "%s · SwitchRoute" },
-  description: "One OpenAI-compatible endpoint for ordered multi-provider waterfalls.",
+  description: "One OpenAI-compatible endpoint for smart routing across hosted providers and local models.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

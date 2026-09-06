@@ -1,17 +1,56 @@
-# Python example
+# Python SDK
+
+The `switchroute` package is a thin typed client for the SwitchRoute API. It does not replace or reimplement the full OpenAI SDK.
+
+## Install
+
+```powershell
+pip install switchroute
+```
+
+Packages are published only through the explicit SDK release workflow. Until a public release exists, install the built wheel from a reviewed GitHub release artifact rather than assuming PyPI contains the package.
+
+## Sync client
 
 ```python
-from openai import OpenAI
+from switchroute import SwitchRoute
 
-client = OpenAI(
-    api_key="sr_live_...",
-    base_url="https://api.switchroute.dawnlightlabs.com/v1",
-)
-
-with client.chat.completions.stream(
+client = SwitchRoute(api_key="sr_live_...")
+response = client.chat.completions.create(
     model="auto",
     messages=[{"role": "user", "content": "Hello"}],
-) as stream:
-    for text in stream.text_stream:
-        print(text, end="")
+)
+print(response["choices"][0]["message"]["content"])
 ```
+
+## Streaming
+
+```python
+for event in client.chat.completions.stream(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+):
+    print(event)
+```
+
+## Async client
+
+```python
+from switchroute import AsyncSwitchRoute
+
+client = AsyncSwitchRoute(api_key="sr_live_...", timeout=60)
+response = await client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Hello"}],
+)
+```
+
+## Models
+
+```python
+models = client.models.list()
+```
+
+The default hosted base URL is `https://api.switchroute.dawnlightlabs.com/v1`. Pass `base_url=` to use another SwitchRoute deployment or local development gateway.
+
+If you already use `openai`, you can keep it. See [API](/docs/api) for standard OpenAI SDK configuration.

@@ -6,27 +6,15 @@ from uuid import UUID, uuid4
 
 from switchroute.budget.cost import cost_microusd
 from switchroute.domain import Candidate, VirtualKeyContext
-from switchroute.errors import (
-    PROVIDER_AUTH_ERROR,
-    PROVIDER_UNAVAILABLE,
-    ROUTE_UNAVAILABLE,
-    SwitchRouteError,
-    classify_provider_error,
-)
+from switchroute.errors import NO_ELIGIBLE_TARGET, PROVIDER_UNAVAILABLE, SwitchRouteError, classify_provider_error
+from switchroute.observability import emit_request_event
 from switchroute.quota.headers import parse_rate_limit_headers, safe_headers
 from switchroute.routing.activity import RoutingActivity
+from switchroute.routing.attempts import record_failed_attempt
 from switchroute.routing.context import PlanCandidate, RoutingPlan
 from switchroute.routing.planner import RoutingPlanner
 from switchroute.routing.state import MemoryRoutingState, RoutingState, target_key
-from switchroute.routing.streaming import (
-    chunk_has_content,
-    normalized_chunk,
-    object_dict,
-    sse_data,
-    sse_done,
-    sse_error,
-    usage_from,
-)
+from switchroute.routing.streaming import chunk_has_content, normalized_chunk, object_dict, sse_data, sse_done, sse_error, usage_from
 from switchroute.services import Services
 
 
@@ -37,9 +25,7 @@ class RouteOrchestrator:
         self.planner = RoutingPlanner(self.state, services.repository)
         self.activity = RoutingActivity(services.repository)
 
-    async def _credential(
-        self, context: VirtualKeyContext, candidate: Candidate
-    ) -> tuple[str, dict | None]:
+    async def _credential(self, context: VirtualKeyContext, candidate: Candidate) -> tuple[str, dict | None]:
         _kind, encrypted, key_id, metadata = await self.services.repository.provider_secret(
             context.workspace_id, candidate.provider_connection_id
         )
@@ -47,9 +33,7 @@ class RouteOrchestrator:
         connection = metadata.get("connection") if isinstance(metadata, dict) else None
         return secret, connection
 
-    async def _mark_auth_invalid(
-        self, context: VirtualKeyContext, candidate: Candidate
-    ) -> None:
+    async def _mark_auth_invalid(self, context: VirtualKeyContext, candidate: Candidate) -> None:
         await self.services.repository.mark_provider_attention(
             context.workspace_id, candidate.provider_connection_id
         )
@@ -59,59 +43,19 @@ class RouteOrchestrator:
         if observations:
             await self.state.observe_quota(target_key(candidate), observations)
 
-    async def _failed_attempt(
-        self,
-        *,
-        request_id: UUID,
-        context: VirtualKeyContext,
-        plan: RoutingPlan,
-        item: PlanCandidate,
-        reservation,
-        started: float,
-        attempted: bool,
-        exc: Exception,
-        fallback_count: int,
-        path: list[dict[str, str]],
-    ) -> SwitchRouteError:
-        error = classify_provider_error(exc)
-        latency_ms = int((time.perf_counter() - started) * 1000)
-        await self.state.reconcile(
-            reservation,
-            attempted=attempted,
-            actual_tokens=None,
-            actual_cost_microusd=None,
+    async def _failed(self, **kwargs) -> SwitchRouteError:
+        return await record_failed_attempt(
+            state=self.state,
+            activity=self.activity,
+            observe_headers=self._observe_headers,
+            mark_auth_invalid=self._mark_auth_invalid,
+            **kwargs,
         )
-        await self._observe_headers(item.candidate, exc)
-        await self.state.observe_failure(target_key(item.candidate), error.code)
-        if error.code == PROVIDER_AUTH_ERROR:
-            await self._mark_auth_invalid(context, item.candidate)
-        path.append(
-            {
-                "provider": item.candidate.provider_kind,
-                "model": item.candidate.model_id,
-                "outcome": error.code,
-            }
-        )
-        decision = self.activity.decision(plan, item, path, fallback_count)
-        await self.activity.record(
-            request_id=request_id,
-            context=context,
-            item=item,
-            latency_ms=latency_ms,
-            status="error",
-            fallback_count=fallback_count,
-            input_tokens=None,
-            output_tokens=None,
-            error_category=error.code,
-            ttft_ms=None,
-            decision=decision,
-        )
-        return error
 
     async def complete(
-        self, context: VirtualKeyContext, payload: dict[str, Any]
+        self, context: VirtualKeyContext, payload: dict[str, Any], request_id: UUID | None = None
     ) -> dict[str, Any]:
-        request_id = uuid4()
+        request_id = request_id or uuid4()
         await self.services.repository.mark_key_used(context.key_id)
         plan = await self.planner.plan(context, payload)
         path: list[dict[str, str]] = []
@@ -120,13 +64,7 @@ class RouteOrchestrator:
         for item in plan.candidates:
             reservation = await self.planner.reserve(context, plan, item)
             if reservation is None:
-                path.append(
-                    {
-                        "provider": item.candidate.provider_kind,
-                        "model": item.candidate.model_id,
-                        "outcome": "capacity_race",
-                    }
-                )
+                path.append({"provider": item.candidate.provider_kind, "model": item.candidate.model_id, "outcome": "capacity_race"})
                 fallback_count += 1
                 continue
             started = time.perf_counter()
@@ -135,39 +73,20 @@ class RouteOrchestrator:
                 secret, connection = await self._credential(context, item.candidate)
                 attempted = True
                 response = await self.services.invoker.complete(
-                    item.candidate.provider_kind,
-                    item.candidate.model_id,
-                    secret,
-                    payload,
-                    connection,
+                    item.candidate.provider_kind, item.candidate.model_id, secret, payload, connection
                 )
                 latency_ms = int((time.perf_counter() - started) * 1000)
                 input_tokens, output_tokens = usage_from(response)
-                actual_tokens = (
-                    None
-                    if input_tokens is None or output_tokens is None
-                    else input_tokens + output_tokens
-                )
+                actual_tokens = None if input_tokens is None or output_tokens is None else input_tokens + output_tokens
                 actual_cost = None
                 if input_tokens is not None and output_tokens is not None:
-                    actual_cost = cost_microusd(
-                        item.candidate, input_tokens, output_tokens
-                    )
+                    actual_cost = cost_microusd(item.candidate, input_tokens, output_tokens)
                 await self.state.reconcile(
-                    reservation,
-                    attempted=True,
-                    actual_tokens=actual_tokens,
-                    actual_cost_microusd=actual_cost,
+                    reservation, attempted=True, actual_tokens=actual_tokens, actual_cost_microusd=actual_cost
                 )
                 await self._observe_headers(item.candidate, response)
                 await self.state.observe_success(target_key(item.candidate), latency_ms)
-                path.append(
-                    {
-                        "provider": item.candidate.provider_kind,
-                        "model": item.candidate.model_id,
-                        "outcome": "selected",
-                    }
-                )
+                path.append({"provider": item.candidate.provider_kind, "model": item.candidate.model_id, "outcome": "selected"})
                 decision = self.activity.decision(plan, item, path, fallback_count)
                 await self.activity.record(
                     request_id=request_id,
@@ -182,19 +101,29 @@ class RouteOrchestrator:
                     ttft_ms=None,
                     decision=decision,
                 )
+                emit_request_event(
+                    event="route_selected",
+                    request_id=str(request_id),
+                    route=context.route_slug,
+                    provider=item.candidate.provider_kind,
+                    model=item.candidate.model_id,
+                    latency_ms=latency_ms,
+                    fallback_count=fallback_count,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    estimated_cost_microusd=actual_cost,
+                    status="success",
+                )
                 data = object_dict(response)
                 data["model"] = "auto"
                 return data
             except asyncio.CancelledError:
                 await self.state.reconcile(
-                    reservation,
-                    attempted=attempted,
-                    actual_tokens=None,
-                    actual_cost_microusd=None,
+                    reservation, attempted=attempted, actual_tokens=None, actual_cost_microusd=None
                 )
                 raise
             except Exception as exc:
-                last_error = await self._failed_attempt(
+                last_error = await self._failed(
                     request_id=request_id,
                     context=context,
                     plan=plan,
@@ -209,14 +138,12 @@ class RouteOrchestrator:
                 fallback_count += 1
         if last_error:
             raise last_error
-        raise SwitchRouteError(
-            ROUTE_UNAVAILABLE, "No Route target had reservable capacity.", 503
-        )
+        raise SwitchRouteError(NO_ELIGIBLE_TARGET, "No Route target had reservable capacity.", 503)
 
     async def stream(
-        self, context: VirtualKeyContext, payload: dict[str, Any]
+        self, context: VirtualKeyContext, payload: dict[str, Any], request_id: UUID | None = None
     ) -> AsyncIterator[bytes]:
-        request_id = uuid4()
+        request_id = request_id or uuid4()
         await self.services.repository.mark_key_used(context.key_id)
         plan = await self.planner.plan(context, payload)
         path: list[dict[str, str]] = []
@@ -225,13 +152,7 @@ class RouteOrchestrator:
         for item in plan.candidates:
             reservation = await self.planner.reserve(context, plan, item)
             if reservation is None:
-                path.append(
-                    {
-                        "provider": item.candidate.provider_kind,
-                        "model": item.candidate.model_id,
-                        "outcome": "capacity_race",
-                    }
-                )
+                path.append({"provider": item.candidate.provider_kind, "model": item.candidate.model_id, "outcome": "capacity_race"})
                 fallback_count += 1
                 continue
             started = time.perf_counter()
@@ -242,11 +163,7 @@ class RouteOrchestrator:
                 secret, connection = await self._credential(context, item.candidate)
                 attempted = True
                 iterator = self.services.invoker.stream(
-                    item.candidate.provider_kind,
-                    item.candidate.model_id,
-                    secret,
-                    payload,
-                    connection,
+                    item.candidate.provider_kind, item.candidate.model_id, secret, payload, connection
                 )
                 async for chunk in iterator:
                     buffered.append(chunk)
@@ -272,16 +189,13 @@ class RouteOrchestrator:
                 raise RuntimeError("provider stream ended before first content")
             except asyncio.CancelledError:
                 await self.state.reconcile(
-                    reservation,
-                    attempted=attempted,
-                    actual_tokens=None,
-                    actual_cost_microusd=None,
+                    reservation, attempted=attempted, actual_tokens=None, actual_cost_microusd=None
                 )
                 for source in header_sources:
                     await self._observe_headers(item.candidate, source)
                 raise
             except Exception as exc:
-                last_error = await self._failed_attempt(
+                last_error = await self._failed(
                     request_id=request_id,
                     context=context,
                     plan=plan,
@@ -296,9 +210,7 @@ class RouteOrchestrator:
                 for source in header_sources:
                     await self._observe_headers(item.candidate, source)
                 fallback_count += 1
-        error = last_error or SwitchRouteError(
-            ROUTE_UNAVAILABLE, "No Route target had reservable capacity.", 503
-        )
+        error = last_error or SwitchRouteError(NO_ELIGIBLE_TARGET, "No Route target had reservable capacity.", 503)
         yield sse_error(error.code, error.message)
         yield sse_done()
 
@@ -346,42 +258,22 @@ class RouteOrchestrator:
             yield sse_error(error.code, error.message)
         finally:
             latency_ms = int((time.perf_counter() - started) * 1000)
-            actual_tokens = (
-                None
-                if input_tokens is None or output_tokens is None
-                else input_tokens + output_tokens
-            )
+            actual_tokens = None if input_tokens is None or output_tokens is None else input_tokens + output_tokens
             actual_cost = None
             if input_tokens is not None and output_tokens is not None:
                 actual_cost = cost_microusd(item.candidate, input_tokens, output_tokens)
             await self.state.reconcile(
-                reservation,
-                attempted=True,
-                actual_tokens=actual_tokens,
-                actual_cost_microusd=actual_cost,
+                reservation, attempted=True, actual_tokens=actual_tokens, actual_cost_microusd=actual_cost
             )
-            # Provider remaining/reset headers describe the request that just completed.
-            # Apply them after our local reservation accounting so authoritative observed
-            # values win instead of being decremented a second time.
             for source in header_sources:
                 await self._observe_headers(item.candidate, source)
             if status == "success":
-                await self.state.observe_success(
-                    target_key(item.candidate), latency_ms, ttft_ms
-                )
+                await self.state.observe_success(target_key(item.candidate), latency_ms, ttft_ms)
                 outcome = "selected"
             else:
-                await self.state.observe_failure(
-                    target_key(item.candidate), error_category or PROVIDER_UNAVAILABLE
-                )
+                await self.state.observe_failure(target_key(item.candidate), error_category or PROVIDER_UNAVAILABLE)
                 outcome = error_category or PROVIDER_UNAVAILABLE
-            path.append(
-                {
-                    "provider": item.candidate.provider_kind,
-                    "model": item.candidate.model_id,
-                    "outcome": outcome,
-                }
-            )
+            path.append({"provider": item.candidate.provider_kind, "model": item.candidate.model_id, "outcome": outcome})
             decision = self.activity.decision(plan, item, path, fallback_count)
             await self.activity.record(
                 request_id=request_id,
@@ -395,5 +287,20 @@ class RouteOrchestrator:
                 error_category=error_category,
                 ttft_ms=ttft_ms,
                 decision=decision,
+            )
+            emit_request_event(
+                event="route_stream",
+                request_id=str(request_id),
+                route=context.route_slug,
+                provider=item.candidate.provider_kind,
+                model=item.candidate.model_id,
+                latency_ms=latency_ms,
+                ttft_ms=ttft_ms,
+                fallback_count=fallback_count,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                estimated_cost_microusd=actual_cost,
+                status=status,
+                error_category=error_category,
             )
         yield sse_done()

@@ -50,6 +50,13 @@ CREATE INDEX IF NOT EXISTS idx_activity_created ON activity(created_at DESC);"))
     pub fn runtime(&self, id: &str) -> Result<Option<RuntimeConnection>, EdgeError> {
         Ok(self.runtimes()?.into_iter().find(|r| r.id == id))
     }
+    pub fn remove_runtime(&self, id: &str) -> Result<bool, EdgeError> {
+        let removed = self.with(|c| {
+            c.execute("DELETE FROM models WHERE runtime_id=?1", [id])?;
+            c.execute("DELETE FROM runtime_connections WHERE id=?1", [id])
+        })?;
+        Ok(removed > 0)
+    }
     pub fn replace_models(&self, runtime_id: &str, models: &[EdgeModel]) -> Result<(), EdgeError> {
         self.with(|c| {
             c.execute("DELETE FROM models WHERE runtime_id=?1", [runtime_id])?;
@@ -180,6 +187,22 @@ CREATE INDEX IF NOT EXISTS idx_activity_created ON activity(created_at DESC);"))
             )
         })?;
         Ok(())
+    }
+    pub fn api_keys(&self) -> Result<Vec<(String, String, String)>, EdgeError> {
+        self.with(|c| {
+            let mut s = c.prepare("SELECT id,name,prefix FROM api_keys ORDER BY created_at")?;
+            let rows = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+            rows.collect()
+        })
+    }
+    pub fn revoke_api_key(&self, id_or_prefix: &str) -> Result<bool, EdgeError> {
+        let n = self.with(|c| {
+            c.execute(
+                "DELETE FROM api_keys WHERE id=?1 OR prefix=?1",
+                [id_or_prefix],
+            )
+        })?;
+        Ok(n > 0)
     }
     pub fn api_key_hashes(&self) -> Result<Vec<String>, EdgeError> {
         self.with(|c| {

@@ -9,8 +9,13 @@ class Settings(BaseSettings):
     supabase_url: str | None = None
     supabase_publishable_key: str | None = None
     supabase_db_url: str | None = None
+    switchroute_secret_backend: str = "environment"
     switchroute_secret_key: str | None = None
     switchroute_secret_key_id: str = "local-v1"
+    switchroute_previous_secret_keys_json: str = "{}"
+    switchroute_kms_wrapped_key: str | None = None
+    switchroute_kms_previous_wrapped_keys_json: str = "{}"
+    switchroute_kms_region: str | None = None
     switchroute_key_pepper: str | None = None
     web_origins: str = "http://localhost:3000"
     enable_test_provider: bool = False

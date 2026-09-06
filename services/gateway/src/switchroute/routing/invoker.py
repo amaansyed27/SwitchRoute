@@ -4,6 +4,7 @@ from typing import Any
 
 import litellm
 
+from switchroute.providers import http as provider_http
 from switchroute.providers.registry import ProviderRegistry
 
 litellm.suppress_debug_info = True
@@ -16,6 +17,11 @@ class LiteLLMInvoker:
         self._providers = providers
         self._enable_test_provider = enable_test_provider
 
+    @staticmethod
+    def _custom_payload(model_id: str, payload: dict[str, Any], stream: bool) -> dict[str, Any]:
+        args = {key: value for key, value in payload.items() if key not in {"model", "stream"}}
+        return {"model": model_id, "stream": stream, **args}
+
     async def complete(
         self,
         provider_kind: str,
@@ -26,6 +32,16 @@ class LiteLLMInvoker:
     ) -> Any:
         if provider_kind == "test" and self._enable_test_provider:
             return self._test_response()
+        if provider_kind == "custom_openai":
+            config = self._providers.get(provider_kind).normalize_connection_config(connection_config)
+            base_url = str(config["base_url"]).rstrip("/")
+            _status, data = await provider_http.safe_cloud_json(
+                "POST",
+                f"{base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json=self._custom_payload(model_id, payload, False),
+            )
+            return data
         target = await self._providers.get(provider_kind).litellm_kwargs(
             model_id, connection_config
         )
@@ -42,6 +58,16 @@ class LiteLLMInvoker:
     ) -> AsyncIterator[Any]:
         if provider_kind == "test" and self._enable_test_provider:
             for chunk in self._test_chunks():
+                yield chunk
+            return
+        if provider_kind == "custom_openai":
+            config = self._providers.get(provider_kind).normalize_connection_config(connection_config)
+            base_url = str(config["base_url"]).rstrip("/")
+            async for chunk in provider_http.safe_cloud_stream(
+                f"{base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json=self._custom_payload(model_id, payload, True),
+            ):
                 yield chunk
             return
         target = await self._providers.get(provider_kind).litellm_kwargs(

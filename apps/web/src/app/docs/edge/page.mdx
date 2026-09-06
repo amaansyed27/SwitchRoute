@@ -1,52 +1,87 @@
-# Edge / Local
+# Edge / Local models
 
-SwitchRoute Edge is the local request plane for routing OpenAI-compatible requests across local model runtimes, with optional fallback to a hosted SwitchRoute Route.
+SwitchRoute Edge is a local Rust daemon that exposes an OpenAI-compatible API on loopback and routes across local runtimes. It can optionally fall back to a hosted SwitchRoute Route when you configure a cloud target.
 
-```text
-Your app
-  -> http://127.0.0.1:8787/v1
-  -> SwitchRoute Edge
-      -> local runtime/model
-      -> local runtime/model
-      -> hosted SwitchRoute Route (optional)
-```
+## Supported local runtimes
 
-## Supported runtimes
+- Ollama
+- LM Studio
+- vLLM
+- llama.cpp server
+- SGLang
+- LocalAI
+- FreeToken
+- custom OpenAI-compatible local endpoints
 
-Slice 3 supports Ollama, LM Studio, vLLM, llama.cpp, SGLang, LocalAI, FreeToken, and custom local OpenAI-compatible endpoints.
+## Install on Windows
 
-Edge auto-detects the well-known loopback endpoints for supported runtimes. It does not scan your LAN and it does not expose localhost through a reverse tunnel. Custom private/LAN runtime URLs can be added manually while the Edge API itself remains loopback-only.
-
-## Start Edge
+Download the Windows x64 ZIP from the matching GitHub Release, verify the included SHA-256 checksum, extract `switchroute-edge.exe`, and place its directory on your PATH. Rust and Cargo are not required.
 
 ```powershell
-cd crates\switchroute-edge
-cargo build --locked
-cargo run --locked -- start
+switchroute-edge --version
+switchroute-edge start
+switchroute-edge status
 ```
 
-The default API base is `http://127.0.0.1:8787/v1`. On first start Edge creates an `sr_edge_...` key and displays the plaintext once; only its hash is retained.
+On first start Edge prints its local API key once. Save it in a secret store. The default endpoint is loopback-only.
 
-## Route locally first
+## Discover local runtimes
 
-Create a Route with `local_first` when a local model should be tried before the optional hosted fallback. Runtime health and discovered model origin are checked before invocation. Ollama remote/cloud models are not classified as local/free.
-
-Streaming fallback is permitted only before the first output-bearing event. Once output begins, Edge commits to that target and never splices a second model/provider into the same stream.
-
-## OpenAI SDK
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="sr_edge_...",
-    base_url="http://127.0.0.1:8787/v1",
-)
-
-response = client.chat.completions.create(
-    model="auto",
-    messages=[{"role": "user", "content": "Hello from Edge"}],
-)
+```powershell
+switchroute-edge discover
+switchroute-edge runtime list
+switchroute-edge model list
 ```
 
-For runtime-specific detection endpoints, model discovery, manual configuration, capabilities, and limitations, see the repository guides in `docs/edge/`.
+Add a runtime manually when it is not discovered automatically:
+
+```powershell
+switchroute-edge runtime add ollama http://127.0.0.1:11434 --name "Ollama"
+```
+
+For an authenticated local endpoint, place the secret in an environment variable and pass its name with `--secret-env`. Edge moves the value into the operating-system credential store; it does not persist the raw secret in SQLite.
+
+## Create a local Route
+
+```powershell
+switchroute-edge route create "Local coding" local-coding --strategy local_first --default
+switchroute-edge route list
+switchroute-edge route inspect local-coding
+```
+
+Add discovered local models using `route add-local`. Use `route add-cloud` only when you intentionally want local-to-hosted fallback.
+
+## Keys
+
+```powershell
+switchroute-edge key create --name "Local dev"
+switchroute-edge key list
+switchroute-edge key revoke <id-or-prefix>
+```
+
+## Operations
+
+```powershell
+switchroute-edge doctor
+switchroute-edge stop
+```
+
+`doctor` reports database paths, daemon files, runtime reachability, and configured cloud target reachability without printing stored secrets.
+
+## Upgrade
+
+1. Stop Edge.
+2. Download and verify the new archive/checksum.
+3. Replace the executable.
+4. Run `switchroute-edge --version`.
+5. Start Edge and run `switchroute-edge doctor`.
+
+The SQLite database and operating-system credential store are not removed by replacing the executable.
+
+## Uninstall
+
+Stop Edge, remove the executable from PATH, then remove the local Edge data directory only if you also want to delete Routes, runtime metadata, and local key hashes. Remove stored Edge credentials through the operating-system credential manager if you want a complete credential cleanup.
+
+## Security boundary
+
+Edge does not scan arbitrary LAN ranges and does not create a reverse tunnel from hosted SwitchRoute into your machine. Local endpoints are explicitly configured/discovered on the local host boundary. See [Security](/docs/security).

@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(3);
+select plan(4);
 
 set local session_replication_role = replica;
 insert into public.workspaces(id,name,slug,created_by)
@@ -21,6 +21,14 @@ select lives_ok(
     ]) as provider_kind
   $$,
   'all production provider kinds can be persisted'
+);
+
+select lives_ok(
+  $$
+    insert into public.provider_connections(workspace_id, provider_kind, display_name)
+    values ('30000000-0000-0000-0000-000000000030','groq','Groq backup')
+  $$,
+  'a workspace can connect multiple API keys for the same provider kind'
 );
 
 select throws_ok(

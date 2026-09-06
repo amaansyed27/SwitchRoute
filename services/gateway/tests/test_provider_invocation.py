@@ -21,18 +21,19 @@ def _connection(kind: str) -> dict[str, Any] | None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("definition", PROVIDER_DEFINITIONS, ids=lambda item: item.id)
-async def test_every_provider_invokes_through_litellm(monkeypatch, definition) -> None:
+async def test_every_provider_has_a_real_invocation_path(monkeypatch, definition) -> None:
     calls: list[dict[str, Any]] = []
-
-    async def validate(url: str) -> str:
-        return url.rstrip("/")
 
     async def fake_completion(**kwargs):
         calls.append(kwargs)
         return {"choices": [{"message": {"content": "ok"}}]}
 
-    monkeypatch.setattr(provider_http, "validate_public_https_url", validate)
+    async def fake_custom(method, url, **kwargs):
+        calls.append({"custom_url": url, **kwargs})
+        return 200, {"choices": [{"message": {"content": "ok"}}]}
+
     monkeypatch.setattr(litellm, "acompletion", fake_completion)
+    monkeypatch.setattr(provider_http, "safe_cloud_json", fake_custom)
     result = await LiteLLMInvoker(ProviderRegistry()).complete(
         definition.id,
         "model",
@@ -41,24 +42,22 @@ async def test_every_provider_invokes_through_litellm(monkeypatch, definition) -
         _connection(definition.id),
     )
     assert result["choices"][0]["message"]["content"] == "ok"
-    assert calls[0]["model"].startswith(f"{definition.litellm_mapping}/")
-    assert calls[0]["api_key"] == "secret"
-    assert calls[0]["stream"] is False
-    if definition.litellm_api_base:
-        assert calls[0]["api_base"] == definition.litellm_api_base
     if definition.id == "custom_openai":
-        assert calls[0]["api_base"] == "https://models.example/v1"
+        assert calls[0]["custom_url"] == "https://models.example/v1/chat/completions"
+        assert calls[0]["headers"]["Authorization"] == "Bearer secret"
+        assert calls[0]["json"]["model"] == "model"
+    else:
+        assert calls[0]["model"].startswith(f"{definition.litellm_mapping}/")
+        assert calls[0]["api_key"] == "secret"
+        assert calls[0]["stream"] is False
+        if definition.litellm_api_base:
+            assert calls[0]["api_base"] == definition.litellm_api_base
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("definition", PROVIDER_DEFINITIONS, ids=lambda item: item.id)
-async def test_every_provider_streams_through_same_litellm_mapping(
-    monkeypatch, definition
-) -> None:
+async def test_every_provider_streams_through_same_mapping(monkeypatch, definition) -> None:
     calls: list[dict[str, Any]] = []
-
-    async def validate(url: str) -> str:
-        return url.rstrip("/")
 
     async def chunks():
         yield {"choices": [{"delta": {"content": "ok"}}]}
@@ -67,8 +66,13 @@ async def test_every_provider_streams_through_same_litellm_mapping(
         calls.append(kwargs)
         return chunks()
 
-    monkeypatch.setattr(provider_http, "validate_public_https_url", validate)
+    async def fake_custom(url, **kwargs):
+        calls.append({"custom_url": url, **kwargs})
+        async for item in chunks():
+            yield item
+
     monkeypatch.setattr(litellm, "acompletion", fake_completion)
+    monkeypatch.setattr(provider_http, "safe_cloud_stream", fake_custom)
     items = [
         item
         async for item in LiteLLMInvoker(ProviderRegistry()).stream(
@@ -80,5 +84,9 @@ async def test_every_provider_streams_through_same_litellm_mapping(
         )
     ]
     assert items == [{"choices": [{"delta": {"content": "ok"}}]}]
-    assert calls[0]["model"].startswith(f"{definition.litellm_mapping}/")
-    assert calls[0]["stream"] is True
+    if definition.id == "custom_openai":
+        assert calls[0]["custom_url"] == "https://models.example/v1/chat/completions"
+        assert calls[0]["json"]["stream"] is True
+    else:
+        assert calls[0]["model"].startswith(f"{definition.litellm_mapping}/")
+        assert calls[0]["stream"] is True

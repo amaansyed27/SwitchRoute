@@ -13,6 +13,12 @@ Do not report exploitable vulnerabilities in public issues. Use GitHub's private
 - Private credential storage is not exposed through the Supabase Data API.
 - Redis stores operational routing state only and is never exposed to browser code.
 
+## Credential encryption and rotation
+
+Provider credential ciphertext is stored in the private schema and uses versioned AES-GCM key IDs. The gateway encrypts new credentials with one active key while explicitly configured previous keys remain available for decryption during rotation. Production may use an AWS KMS-wrapped data key so the plaintext data key does not need to be stored directly in deployment configuration.
+
+A key must not be removed from the configured decrypt set until all ciphertext written under that key has been re-encrypted or otherwise retired.
+
 ## Hosted smart-routing boundary
 
 Capability detection runs only against the in-memory request and persists no content. Routing decisions may store bounded provider/model identifiers, safe reason codes, quota provenance/confidence, paid/free participation, latency/circuit metadata and fallback paths.
@@ -25,13 +31,15 @@ Streaming fallback is allowed only before the first output-bearing event. Switch
 
 Custom OpenAI-compatible cloud connections are restricted to public HTTPS destinations. The gateway rejects localhost, loopback, private, link-local, non-global IPs, known cloud metadata endpoints, user-info URLs, query/fragment-bearing base URLs, and DNS resolutions that produce any non-public destination. HTTP redirects are followed manually, every target is revalidated, and redirect count is capped.
 
+Validated DNS addresses are pinned into the outbound connection while the original hostname is retained for HTTPS/TLS. Redirect destinations are independently resolved, validated, and pinned. The request path therefore does not perform an uncontrolled second DNS resolution that could turn a previously approved hostname into a private destination.
+
 Local/private destinations are intentionally excluded from the hosted gateway and belong to SwitchRoute Edge.
 
 ## Edge security boundary
 
 SwitchRoute Edge is local-first and deliberately has a different outbound trust boundary from the hosted gateway:
 
-- the Edge API binds to loopback only in Slice 3; non-loopback daemon binds are rejected;
+- the Edge API binds to loopback only; non-loopback daemon binds are rejected;
 - there is no reverse tunnel, relay, hosted callback into Edge, automatic LAN scan, or public localhost exposure;
 - private/LAN runtime endpoints may be configured manually because reaching private inference servers is Edge's purpose;
 - Edge API keys use `sr_edge_` plaintext presented once and SHA-256 hash-only local persistence;
@@ -43,9 +51,11 @@ SwitchRoute Edge is local-first and deliberately has a different outbound trust 
 
 A hosted SwitchRoute fallback target carries only the hosted SwitchRoute Route/API credential. Hosted provider credentials are never downloaded to Edge.
 
-## Release-hardening items
+## Release review
 
-Slice 4 retains final packaging/signing review and stronger DNS-rebinding-resistant connection pinning for custom hosted endpoints.
+The release branch includes DNS-pinned custom-endpoint requests, rotatable credential encryption, zero-retention checks, dependency audits, secret scanning, multi-platform Edge checks, SDK package checks, OpenAPI drift enforcement, and database privacy tests.
+
+Public-beta release still requires operational evidence and policy decisions outside those code gates: run production deployment and rollback drills, run a database restore drill, measure load thresholds on the real deployment, configure and exercise release publishing credentials, verify production domains/auth/cookie behavior, and make an explicit repository license decision.
 
 Run Supabase security and performance advisors as part of release review rather than encoding transient advisor output as an architecture invariant. `private.provider_credentials` is outside the exposed public schema and is intentionally gateway-owned; any future RLS change there must include matching gateway-access policies, migrations, and tests rather than being applied blindly.
 

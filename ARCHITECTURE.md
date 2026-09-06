@@ -27,11 +27,13 @@ OpenAI SDK
 
 Prompt, response, system-prompt, tool and upload contents are never written by routing. Credential decryption happens only after a target has been selected and capacity reserved.
 
+Provider credentials use versioned AES-GCM secret stores. New ciphertext is written with one active key ID while explicitly configured previous key IDs remain decrypt-only during rotation. Production can use an AWS KMS-wrapped 32-byte data key instead of storing the active data key directly in process configuration.
+
 Fallback is permitted only before response content has started. Once a stream has emitted content, SwitchRoute never appends output from a different provider.
 
 ## Edge request plane
 
-`crates/switchroute-edge` is a separate Rust daemon for local/private runtimes. It exposes an OpenAI-compatible API on `127.0.0.1:8787` by default and rejects non-loopback daemon binds in Slice 3.
+`crates/switchroute-edge` is a separate Rust daemon for local/private runtimes. It exposes an OpenAI-compatible API on `127.0.0.1:8787` by default and rejects non-loopback daemon binds.
 
 ```text
 Local application
@@ -43,7 +45,7 @@ Local application
 
 Edge persists runtime configuration, model metadata, Routes, hash-only API keys and bounded sanitized activity in local SQLite. Runtime and hosted fallback credentials are stored through the operating-system credential store; SQLite keeps only secret references. Edge does not persist prompt/response/tool/upload content.
 
-Local/private runtime URLs are deliberately permitted in Edge. The hosted gateway retains its public-HTTPS SSRF boundary and never initiates requests to a user's localhost. Slice 3 adds no reverse tunnel, relay or LAN scan.
+Local/private runtime URLs are deliberately permitted in Edge. The hosted gateway retains its public-HTTPS SSRF boundary and never initiates requests to a user's localhost. Edge adds no reverse tunnel, relay or automatic LAN scan.
 
 For streaming, Edge may fall back only before the first output-bearing SSE event. Once output begins it commits to that target. `Local First` uses normalized model origin, so Ollama remote/cloud models are not treated as local/free.
 
@@ -65,16 +67,18 @@ Adapters own provider-specific credential validation, model discovery/filtering,
 
 ## Custom hosted endpoints
 
-`custom_openai` is a hosted-cloud connection type, not an Edge/local escape hatch. The gateway accepts only public HTTPS base URLs, resolves and validates DNS, rejects non-global/private/loopback/link-local/cloud-metadata destinations, disables automatic redirects, revalidates every redirect target, and limits redirect count.
+`custom_openai` is a hosted-cloud connection type, not an Edge/local escape hatch. The gateway accepts only public HTTPS base URLs, resolves and validates DNS, rejects non-global/private/loopback/link-local/cloud-metadata destinations, disables automatic redirects, and limits redirect count.
 
-DNS-rebinding-resistant connection pinning remains an explicit Slice 4 security-hardening item.
+The validated DNS result is also the connection target: the gateway pins the outbound connection to the validated public address set while preserving the original HTTPS hostname for TLS. Every redirect target is separately resolved, revalidated, and pinned before a connection is made. This prevents a validated hostname from being silently re-resolved to a private address during the request.
 
 ## Boundaries
 
 - `apps/web`: product UI, Supabase SSR session lifecycle, BFF forwarding and documentation.
 - `services/gateway`: hosted Cloud management/request plane and smart routing.
 - `crates/switchroute-edge`: local/private runtime discovery, routing, OpenAI-compatible API and local persistence.
-- `packages/api-contract`: generated hosted FastAPI OpenAPI snapshot.
+- `packages/api-contract`: generated hosted FastAPI OpenAPI snapshot with CI drift enforcement.
+- `sdk/python` and `sdk/javascript`: versioned client package sources with build/test/release workflows.
+- `.github/workflows/edge-release.yml`: versioned multi-platform Edge release archives and checksums.
 - `supabase`: hosted identity and persistence schema.
 
-Final packaging, SDK distribution, installers and release hardening remain Slice 4 work.
+Release-hardening code and CI gates are implemented on the release branch. Public-beta promotion still depends on operational release evidence such as production deployment/rollback/restore drills, measured deployment load thresholds, trusted publishing/release credentials, production-domain verification, and an explicit repository license decision.

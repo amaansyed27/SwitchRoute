@@ -5,7 +5,13 @@ from uuid import UUID
 from switchroute.budget.cost import cost_microusd, estimate_request_tokens
 from switchroute.budget.policy import BudgetPolicy, is_free_candidate, paid_policy_reason
 from switchroute.domain import VirtualKeyContext
-from switchroute.errors import ROUTE_UNAVAILABLE, UNSUPPORTED_CAPABILITY, SwitchRouteError
+from switchroute.errors import (
+    BUDGET_EXCEEDED,
+    QUOTA_EXHAUSTED,
+    ROUTE_UNAVAILABLE,
+    UNSUPPORTED_CAPABILITY,
+    SwitchRouteError,
+)
 from switchroute.health.circuit_breaker import CircuitState
 from switchroute.routing.context import ExcludedCandidate, PlanCandidate, RoutingPlan
 from switchroute.routing.requirements import capability_reason, infer_requirements
@@ -125,6 +131,19 @@ class RoutingPlanner:
                     UNSUPPORTED_CAPABILITY,
                     "No Route target has confirmed support for the request capabilities.",
                     400,
+                )
+            reasons = {item.reason for item in excluded}
+            if reasons and reasons <= {"quota_exhausted"}:
+                raise SwitchRouteError(
+                    QUOTA_EXHAUSTED,
+                    "All eligible Route targets have exhausted known quota.",
+                    429,
+                )
+            if reasons and reasons <= {"budget_unknown_cost"}:
+                raise SwitchRouteError(
+                    BUDGET_EXCEEDED,
+                    "Route budget excludes every target because cost is unknown.",
+                    402,
                 )
             raise SwitchRouteError(
                 ROUTE_UNAVAILABLE,

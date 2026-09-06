@@ -1,6 +1,8 @@
 pub mod api;
 pub mod auth;
 pub mod cli;
+mod cli_daemon;
+mod cli_offline;
 pub mod config;
 pub mod discovery;
 pub mod endpoint;
@@ -11,6 +13,7 @@ pub mod providers;
 pub mod routing;
 pub mod secrets;
 pub mod streaming;
+
 use api::AppState;
 use auth::create_key;
 use config::EdgeConfig;
@@ -42,6 +45,7 @@ pub async fn run_server(
         .await
         .map_err(|_| EdgeError::Internal)
 }
+
 fn spawn_discovery(store: Store, secrets: Arc<dyn SecretStore>) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
@@ -53,6 +57,7 @@ fn spawn_discovery(store: Store, secrets: Arc<dyn SecretStore>) {
         }
     });
 }
+
 async fn shutdown() {
     let _ = tokio::signal::ctrl_c().await;
 }
