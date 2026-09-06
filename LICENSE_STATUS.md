@@ -1,7 +1,7 @@
 # License status
 
-SwitchRoute currently has **no selected software license**.
+SwitchRoute is open-source software licensed under the **Apache License, Version 2.0** (`Apache-2.0`).
 
-No MIT, Apache-2.0, GPL, BSD, MPL, proprietary license grant, or other software license should be inferred from this repository.
+The canonical license text is in the repository root at [`LICENSE`](LICENSE).
 
-This file records the intentional absence of a selected license; it is not itself a software license or permission grant. A `LICENSE` file will be added only after an explicit project decision.
+This license applies to SwitchRoute-authored source code and documentation unless a file or bundled third-party component states otherwise. Third-party dependencies remain governed by their own licenses.

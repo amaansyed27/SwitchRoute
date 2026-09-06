@@ -2,6 +2,16 @@
   "name": "@switchroute/sdk",
   "version": "0.4.0",
   "description": "Thin TypeScript SDK for the SwitchRoute OpenAI-compatible API",
+  "license": "Apache-2.0",
+  "homepage": "https://switchroute.dawnlightlabs.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amaansyed27/SwitchRoute.git",
+    "directory": "sdk/javascript"
+  },
+  "bugs": {
+    "url": "https://github.com/amaansyed27/SwitchRoute/issues"
+  },
   "type": "module",
   "sideEffects": false,
   "files": ["dist", "README.md"],

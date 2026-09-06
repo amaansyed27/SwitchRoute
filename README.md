@@ -98,4 +98,4 @@ Production promotion is separate from branch development and should happen only 
 
 ## License
 
-**No software license has been selected.** Do not infer MIT, Apache, GPL, or another license from dependencies, examples, or package metadata. A license will be added only after an explicit project decision.
+SwitchRoute is open-source software licensed under the **Apache License, Version 2.0**. See [`LICENSE`](LICENSE).
