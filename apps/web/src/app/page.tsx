@@ -8,9 +8,9 @@ import { LandingExperience } from "@/components/marketing/landing-experience";
 import { PROVIDER_CATALOG } from "@/features/providers/catalog";
 
 const targets = [
-  { index: "01", provider: "Groq", model: "qwen/qwen3-32b", primary: true, note: "fast" },
-  { index: "02", provider: "Gemini", model: "gemini-2.5-flash", primary: false, note: "free capacity" },
-  { index: "03", provider: "OpenRouter", model: "anthropic/claude-sonnet", primary: false, note: "fallback" },
+  { index: "01", provider: "Groq · Personal", model: "qwen/qwen3-32b", primary: true, note: "free capacity" },
+  { index: "02", provider: "Groq · Backup", model: "qwen/qwen3-32b", primary: false, note: "fallback" },
+  { index: "03", provider: "Cerebras", model: "qwen-3-32b", primary: false, note: "fallback" },
 ];
 
 const features = [
@@ -60,8 +60,8 @@ export default function LandingPage() {
             <span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-50"/><span className="relative inline-flex size-2 rounded-full bg-emerald-500"/></span>
             Hosted + local model routing
           </div>
-          <h1 className="text-[clamp(44px,6.2vw,80px)] font-semibold leading-[.96] tracking-[-.06em]">One endpoint.<br/><span className="text-[var(--muted-foreground)]">Smart routing behind it.</span></h1>
-          <p className="mt-6 max-w-xl text-base leading-7 text-[var(--muted-foreground)] sm:text-lg">Connect hosted providers, choose a Route strategy, and keep one OpenAI-compatible client. Use SwitchRoute Edge when local models should stay local.</p>
+          <h1 className="text-[clamp(44px,6.2vw,80px)] font-semibold leading-[.96] tracking-[-.06em]">One API for the capacity<br/><span className="text-[var(--muted-foreground)]">you already have.</span></h1>
+          <p className="mt-6 max-w-xl text-base leading-7 text-[var(--muted-foreground)] sm:text-lg">Connect providers, build a Waterfall, and use one OpenAI-compatible key. Free first. Paid only when you allow it.</p>
           <div className="mt-7 flex flex-wrap gap-2"><Link className={buttonClass({ size: "lg" })} href="/login">Create a Route <Icon name="chevron" className="size-4"/></Link><Link className={buttonClass({ variant: "secondary", size: "lg" })} href="/docs/getting-started">Read the docs</Link></div>
           <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-xs text-[var(--muted-foreground)]"><span className="flex items-center gap-1.5"><Icon name="check" className="size-3.5 text-emerald-500"/>17 hosted connection types</span><span className="flex items-center gap-1.5"><Icon name="check" className="size-3.5 text-emerald-500"/>6 smart strategies</span><span className="flex items-center gap-1.5"><Icon name="check" className="size-3.5 text-emerald-500"/>Zero content retention</span></div>
         </div>

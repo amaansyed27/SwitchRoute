@@ -128,6 +128,8 @@ export type ActivityRecord = {
   request_id: string;
   created_at: string;
   route_name: string;
+  provider_connection_id?: string | null;
+  provider_connection_name?: string | null;
   provider_kind?: string | null;
   model_id?: string | null;
   input_tokens?: number | null;

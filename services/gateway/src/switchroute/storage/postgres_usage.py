@@ -71,10 +71,12 @@ async def activity(
     pool: asyncpg.Pool, workspace_id: UUID, limit: int = 50
 ) -> list[dict[str, Any]]:
     rows = await pool.fetch(
-        """select u.request_id,u.route_id,r.name route_name,u.provider_kind,u.model_id,
+        """select u.request_id,u.route_id,r.name route_name,u.provider_connection_id,
+        p.display_name provider_connection_name,u.provider_kind,u.model_id,
         u.input_tokens,u.output_tokens,u.latency_ms,u.ttft_ms,u.status,u.fallback_count,
         u.estimated_cost_microusd,u.paid_routing,u.error_category,u.routing_decision,u.created_at
         from public.request_usage u join public.routes r on r.id=u.route_id
+        left join public.provider_connections p on p.id=u.provider_connection_id
         where u.workspace_id=$1 order by u.created_at desc limit $2""",
         workspace_id,
         limit,

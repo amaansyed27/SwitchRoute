@@ -101,3 +101,20 @@ async def test_durable_paid_spend_counts_billable_error_rows() -> None:
     assert "paid_routing" in normalized
     assert "estimated_cost_microusd is not null" in normalized
     assert "status='success'" not in normalized
+
+
+@pytest.mark.asyncio
+async def test_activity_keeps_the_provider_connection_name() -> None:
+    class Pool:
+        def __init__(self) -> None:
+            self.query = ""
+
+        async def fetch(self, query, *_):
+            self.query = query
+            return [{"provider_connection_name": "Groq backup", "provider_kind": "groq"}]
+
+    pool = Pool()
+    records = await postgres_usage.activity(pool, UUID(int=1))  # type: ignore[arg-type]
+
+    assert "left join public.provider_connections p" in pool.query
+    assert records == [{"provider_connection_name": "Groq backup", "provider_kind": "groq"}]
