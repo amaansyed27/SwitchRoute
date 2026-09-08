@@ -1,11 +1,17 @@
-from typing import Protocol
+from typing import Any, Protocol
 
 from switchroute.domain import ProviderModel
 
 
 class ProviderAdapter(Protocol):
-    kind: str
+    definition: Any
 
-    async def validate_and_discover(self, api_key: str) -> list[ProviderModel]: ...
+    def normalize_connection_config(self, config: dict[str, Any] | None) -> dict[str, Any]: ...
 
-    def litellm_model(self, model_id: str) -> str: ...
+    async def validate_and_discover(
+        self, api_key: str, connection_config: dict[str, Any] | None = None
+    ) -> list[ProviderModel]: ...
+
+    async def litellm_kwargs(
+        self, model_id: str, connection_config: dict[str, Any] | None = None
+    ) -> dict[str, Any]: ...

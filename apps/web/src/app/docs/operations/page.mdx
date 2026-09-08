@@ -1,0 +1,78 @@
+# Operations
+
+## Hosted services
+
+SwitchRoute uses separate deployable services:
+
+- Web/control plane: `switchroute.dawnlightlabs.com`
+- Gateway/API: `api.switchroute.dawnlightlabs.com`
+- Supabase: auth, workspace/control-plane data, encrypted credential ciphertext, content-free usage metadata
+- Redis: routing health, quota/capacity, reservations, and circuit state
+- Edge: user-installed local daemon; it is not hosted on Vercel
+
+The web project may run on Vercel. The Python gateway may run on Vercel only while its runtime limits are compatible with streaming/concurrency requirements; production deployment must keep Redis and Postgres reachable and should be verified with `/health` plus a deterministic test Route before promotion.
+
+## Required production configuration
+
+Web:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- trusted gateway URL used by the server-side BFF
+
+Gateway:
+
+- Supabase/Postgres connection URL
+- Supabase URL and publishable key for user-token verification
+- Redis URL
+- SwitchRoute virtual-key pepper
+- explicit allowed web origin(s)
+- a credential encryption backend
+
+Production credential encryption should use the KMS-wrapped data-key backend when KMS is available. Local development can use the environment AES-GCM backend.
+
+## Health checks
+
+Gateway:
+
+```text
+GET /health
+```
+
+`status=ok` means the gateway and routing-state backend are available. A degraded routing-state response should block a production promotion until its expected fallback semantics have been reviewed.
+
+Web verification should cover sign in, Providers, Routes, API Keys, Activity, docs, and a full successful request through the BFF/public gateway path.
+
+## Rollback
+
+Keep the previous known-good web and gateway deployments independently addressable. If a release fails verification, roll back only the affected project. Database migrations must be backward-compatible with the previous application version before production deployment; do not roll back a database by deleting data.
+
+## Database retention
+
+Operational history contains no prompt or completion content. The database includes an operator-only `private.cleanup_operational_history(interval)` maintenance function. It is not executable by `anon`, `authenticated`, or `service_role` Data API roles.
+
+Choose the retention window as an operations policy, then invoke it from a privileged direct database maintenance connection, for example:
+
+```sql
+select * from private.cleanup_operational_history(interval '90 days');
+```
+
+No automatic destructive schedule is enabled by the migration. Schedule it only after the desired retention period is approved.
+
+## Backup and restore
+
+Back up Supabase/Postgres using the database provider's supported backup mechanism. A restore must preserve Route/control-plane rows and encrypted credential ciphertext together. Restoring ciphertext without the matching active/decrypt-only key material makes provider credentials unreadable.
+
+Redis is routing state, not the source of truth for Routes or credentials. Loss of Redis should degrade routing behavior safely rather than destroy durable configuration.
+
+## Release checks
+
+Before public release:
+
+1. CI is green for web, gateway, database, Edge, SDKs, dependency audits, OpenAPI drift, and secret scanning.
+2. Supabase Security Advisor is reviewed.
+3. Vercel preview deployments are verified before production promotion.
+4. Production domains and DNS are attached to the correct projects.
+5. KMS/secret configuration and Redis are production-ready.
+6. Package/release publishing is explicitly approved.
+7. Edge signing/notarization status is accurately stated.

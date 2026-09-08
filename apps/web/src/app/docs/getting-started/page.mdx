@@ -1,35 +1,77 @@
-# Getting Started
+# Getting started
 
-SwitchRoute gives you one OpenAI-compatible API for the model providers you already use. A typical setup takes four product actions: connect a provider, create a Route, create a route-bound SwitchRoute key, then point your existing OpenAI client at the SwitchRoute gateway.
+SwitchRoute gives an application one OpenAI-compatible endpoint backed by a **Route**: an ordered set of provider/model targets plus a routing and spend policy.
 
-## 1. Connect a provider
+## Cloud quickstart
 
-Open **Providers**, choose Groq, Gemini, or OpenRouter, paste the provider key, and run **Test connection**. SwitchRoute discovers chat-capable models before it lets you save. The credential becomes write-only after save.
+### 1. Sign in
 
-## 2. Create a Route
+Create an account or sign in, then open **Providers**.
 
-A Route is an ordered list of provider/model targets. Choose **Priority** to follow that order exactly, or **Free First** to prefer models marked free/free-capable before paid fallbacks.
+### 2. Connect a provider
 
-## 3. Generate a key
+Choose a hosted provider, paste the provider credential, and select **Test credential**. SwitchRoute validates the credential and discovers the models visible to that account before saving it. The credential is encrypted by the gateway and is never returned to the browser after save.
 
-Open **API Keys**, choose the Route, and create either a live or test key. Copy the full `sr_live_...` or `sr_test_...` value immediately; SwitchRoute stores only a keyed hash and cannot recover it.
+See [Providers](/docs/providers) for all 17 hosted connection types and provider-specific limitations.
 
-## 4. Send a request
+### 3. Create a Route
+
+Open **Routes**, add one or more discovered provider/model targets, and choose a strategy:
+
+- **Priority** — Route order after eligibility checks.
+- **Free First** — confirmed free capacity before paid capacity.
+- **Quota Aware** — known usable quota before weaker/unknown capacity.
+- **Fastest** — observed latency with confidence handling.
+- **Cheapest** — known estimated request cost first.
+- **Balanced** — health, quota, latency, and known cost together.
+
+Unknown quota is not unlimited. Unknown price is not free. Unknown latency does not automatically win.
+
+### 4. Generate a key
+
+Open **API Keys**, select the Route, and create a live or test key. Copy the full `sr_live_...` or `sr_test_...` value immediately. Only its hash and display prefix are retained after creation.
+
+### 5. Make the first request
+
+The standard OpenAI Python SDK works directly:
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(
     api_key="sr_live_...",
-    base_url="https://api.switchroute.dawnlightlabs.com/v1"
+    base_url="https://api.switchroute.dawnlightlabs.com/v1",
 )
 
 response = client.chat.completions.create(
     model="auto",
-    messages=[{"role": "user", "content": "Hello"}]
+    messages=[{"role": "user", "content": "Hello"}],
 )
+
+print(response.choices[0].message.content)
 ```
 
-During local development, use `http://localhost:8000/v1` instead.
+Use `model="auto"` or the Route slug bound to the key. Changing provider targets or strategy does not require changing application code.
 
-The onboarding screen performs this entire path and includes a real test request, so a new user does not need to read documentation before verifying their setup.
+## Local quickstart with Edge
+
+Download the release archive for your operating system, put `switchroute-edge` on your PATH, then run:
+
+```powershell
+switchroute-edge --version
+switchroute-edge start
+switchroute-edge status
+switchroute-edge discover
+switchroute-edge runtime list
+switchroute-edge model list
+```
+
+On first start, Edge creates a local API key and prints it once. Edge binds to loopback by default. See [Edge / Local](/docs/edge) for local Routes, cloud fallback, upgrades, and removal.
+
+## Next
+
+- [API and HTTP examples](/docs/api)
+- [Python SDK](/docs/python)
+- [JavaScript / TypeScript SDK](/docs/javascript)
+- [Routes and strategy semantics](/docs/routes)
+- [Security and zero retention](/docs/security)

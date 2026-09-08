@@ -1,0 +1,22 @@
+# Together AI
+
+## Credential
+Get an API key from **Together AI Settings → API Keys**. SwitchRoute validates and encrypts it server-side.
+
+## Validation
+SwitchRoute calls `GET https://api.together.ai/v1/models` with bearer authentication.
+
+## Model discovery
+Chat models are normalized, including provider-supplied context and token pricing when present.
+
+## Free usage
+Free or promotional usage may exist depending on current Together account terms; SwitchRoute does not guarantee it.
+
+## Quota and rate metadata
+Runtime failures are normalized. Quota-aware routing is deferred to Slice 2.
+
+## Known limitations
+Pricing metadata is descriptive only in Slice 1.8 and does not enable Cheapest routing.
+
+## Disconnect
+Use **Providers → Disconnect** after removing this connection from all Routes.

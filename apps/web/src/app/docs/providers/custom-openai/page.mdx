@@ -1,0 +1,22 @@
+# Custom OpenAI-compatible cloud endpoint
+
+## Credential
+Use the API key expected by your hosted OpenAI-compatible service plus its public HTTPS base URL. The key is gateway-only and encrypted before storage.
+
+## Validation
+SwitchRoute validates the base URL, optionally calls `<base>/models`, then sends a fixed one-token synthetic chat compatibility probe to `<base>/chat/completions`. No user prompt is used or retained.
+
+## Model discovery
+An OpenAI-style `data` model list is normalized when available. If discovery is unavailable, provide a manual model ID fallback.
+
+## Free usage
+Unknown. SwitchRoute does not infer custom-provider billing.
+
+## Quota and rate metadata
+Only generic runtime HTTP/provider failures are normalized; no custom quota schema is assumed.
+
+## Known limitations
+Hosted public HTTPS only. Localhost, private, loopback, link-local, non-global, and cloud-metadata destinations are rejected. DNS results and redirects are validated, and redirects are capped. Local/private endpoints belong to SwitchRoute Edge.
+
+## Disconnect
+Use **Providers → Disconnect** after removing this connection from all Routes.

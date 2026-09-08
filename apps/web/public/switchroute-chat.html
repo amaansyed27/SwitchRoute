@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SwitchRoute Chat</title>
+    <style>
+      :root { color-scheme: dark; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: #111214; color: #e8e7e3; }
+      * { box-sizing: border-box; } body { margin: 0; min-height: 100vh; }
+      main { width: min(900px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 48px; }
+      header { border-bottom: 1px solid #303236; margin-bottom: 20px; padding-bottom: 20px; }
+      h1 { font: 700 clamp(1.5rem, 4vw, 2.25rem)/1.05 system-ui, sans-serif; margin: 0 0 8px; letter-spacing: -0.06em; }
+      p { color: #a9adb5; line-height: 1.55; margin: 0; }
+      .notice { border-left: 2px solid #4bb6eb; color: #b9c6cf; font-size: .82rem; margin: 20px 0; padding: 10px 12px; background: #17191c; }
+      .settings { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; margin-bottom: 16px; }
+      label { color: #bfc4ca; display: grid; font-size: .75rem; gap: 7px; }
+      input, select, textarea, button { border: 1px solid #3a3d42; border-radius: 4px; background: #17191c; color: inherit; font: inherit; }
+      input, select, textarea { width: 100%; padding: 10px; }
+      input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid #4bb6eb; outline-offset: 2px; border-color: #4bb6eb; }
+      button { cursor: pointer; padding: 10px 13px; white-space: nowrap; } button:hover:not(:disabled) { background: #24272c; } button:disabled { cursor: wait; opacity: .6; }
+      #messages { border: 1px solid #303236; min-height: 360px; padding: 16px; margin-bottom: 12px; }
+      .message { border-bottom: 1px solid #2a2c30; padding: 12px 0; white-space: pre-wrap; word-break: break-word; } .message:last-child { border-bottom: 0; }
+      .role { color: #4bb6eb; display: block; font-size: .72rem; margin-bottom: 6px; text-transform: uppercase; } .empty { color: #737882; padding-top: 120px; text-align: center; }
+      form { display: grid; gap: 10px; } textarea { min-height: 100px; resize: vertical; } .actions { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+      #status { color: #a9adb5; font-size: .78rem; min-height: 1em; } .error { color: #ff9589 !important; }
+      @media (max-width: 640px) { main { width: min(100% - 24px, 900px); padding-top: 24px; } .settings { grid-template-columns: 1fr; } .settings button { width: 100%; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header><h1>SwitchRoute Chat</h1><p>A small OpenAI-compatible chat client for a SwitchRoute API key.</p></header>
+      <p class="notice">Browser test tool. Your key and messages stay in this tab; nothing is saved. Use a disposable test key, never a production key.</p>
+      <section class="settings" aria-label="Connection settings">
+        <label>API base URL<input id="baseUrl" value="https://switchroute-gateway.vercel.app/v1" autocomplete="url" /></label>
+        <label>SwitchRoute API key<input id="apiKey" type="password" placeholder="sr_live_..." autocomplete="off" /></label>
+        <button id="loadModels" type="button">Load models</button>
+      </section>
+      <section class="settings" aria-label="Model settings"><label>Model / Route<select id="model"><option value="auto">auto</option></select></label></section>
+      <section id="messages" aria-live="polite"><p class="empty">Load models, then send a message.</p></section>
+      <form id="chatForm"><label for="prompt">Message</label><textarea id="prompt" placeholder="Ask something…" required></textarea><div class="actions"><span id="status" role="status"></span><button id="send" type="submit">Send</button></div></form>
+    </main>
+    <script>
+      const messages = [];
+      const $ = (id) => document.getElementById(id);
+      const status = (text, error = false) => { $("status").textContent = text; $("status").classList.toggle("error", error); };
+      const baseUrl = () => $("baseUrl").value.trim().replace(/\/+$/, "");
+      const headers = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${$("apiKey").value.trim()}` });
+      const setBusy = (busy) => { $("send").disabled = busy; $("loadModels").disabled = busy; };
+      const requiresHostedOrigin = () => {
+        if (location.protocol !== "file:") return false;
+        status("This page cannot call SwitchRoute from file://. Open the deployed /switchroute-chat.html URL instead.", true);
+        return true;
+      };
+      const render = () => {
+        const box = $("messages"); box.replaceChildren();
+        if (!messages.length) { const empty = document.createElement("p"); empty.className = "empty"; empty.textContent = "Load models, then send a message."; box.append(empty); return; }
+        messages.forEach(({ role, content }) => { const item = document.createElement("article"); item.className = "message"; const label = document.createElement("span"); label.className = "role"; label.textContent = role; item.append(label, document.createTextNode(content)); box.append(item); });
+        box.scrollTop = box.scrollHeight;
+      };
+      const fail = (response) => `${response.status} ${response.statusText || "Request failed"}`;
+      $("loadModels").addEventListener("click", async () => {
+        if (requiresHostedOrigin()) return;
+        if (!$("apiKey").value.trim()) return status("Enter a SwitchRoute API key first.", true);
+        setBusy(true); status("Loading models…");
+        try {
+          const response = await fetch(`${baseUrl()}/models`, { headers: headers() });
+          if (!response.ok) throw new Error(fail(response));
+          const data = await response.json(); const options = data.data || [];
+          $("model").replaceChildren(...options.map(({ id }) => new Option(id, id)));
+          if (!options.length) $("model").append(new Option("auto", "auto"));
+          status(`${options.length || 1} model${options.length === 1 ? "" : "s"} available`);
+        } catch (error) { status(`Could not load models: ${error.message}`, true); } finally { setBusy(false); }
+      });
+      $("chatForm").addEventListener("submit", async (event) => {
+        event.preventDefault(); const prompt = $("prompt").value.trim();
+        if (requiresHostedOrigin()) return;
+        if (!prompt || !$("apiKey").value.trim()) return status("Enter a message and API key.", true);
+        messages.push({ role: "user", content: prompt }); render(); $("prompt").value = ""; setBusy(true); status("Routing request…");
+        try {
+          const response = await fetch(`${baseUrl()}/chat/completions`, { method: "POST", headers: headers(), body: JSON.stringify({ model: $("model").value, messages, stream: false }) });
+          if (!response.ok) throw new Error(fail(response));
+          const data = await response.json(); const content = data.choices?.[0]?.message?.content;
+          if (typeof content !== "string") throw new Error("No assistant response was returned");
+          messages.push({ role: "assistant", content }); render(); status(`200 · ${response.headers.get("x-switchroute-route") || $("model").value}`);
+        } catch (error) { status(`Request failed: ${error.message}`, true); } finally { setBusy(false); }
+      });
+    </script>
+  </body>
+</html>

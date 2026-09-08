@@ -31,6 +31,18 @@ jobs:
 
   gateway:
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      REDIS_TEST_URL: redis://localhost:6379/15
     defaults:
       run:
         working-directory: services/gateway
@@ -41,12 +53,92 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
       - run: pip install -e ".[dev]" pip-audit
-      - run: ruff check --config pyproject.toml src tests ../../scripts/export_openapi.py
+      - run: python -c "import tomllib, pathlib; local=tomllib.loads(pathlib.Path('pyproject.toml').read_text()); root=tomllib.loads(pathlib.Path('../../pyproject.toml').read_text()); assert sorted(local['project']['dependencies']) == sorted(root['project']['dependencies']), 'root pyproject.toml must mirror services/gateway runtime dependencies'"
+      - run: ruff check --config pyproject.toml src tests ../../scripts/export_openapi.py ../../scripts/check_zero_retention.py ../../scripts/check_versions.py
       - run: pyright
       - run: pytest -q
-      - run: python ../../scripts/export_openapi.py --check
-      - run: python -c "import json; d=json.load(open('../../packages/api-contract/openapi.json')); assert '/v1/chat/completions' in d['paths']; assert '/v1/models' in d['paths']"
+      - run: python ../../tests/compat/openai_python.py
+      - run: python ../../scripts/check_zero_retention.py
+      - run: python ../../scripts/check_versions.py
+      - run: python ../../scripts/export_openapi.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: generated-openapi
+          path: packages/api-contract/openapi.json
+          if-no-files-found: error
+      - run: python -c "import json; d=json.load(open('../../packages/api-contract/openapi.json')); assert d['openapi'].startswith('3.1'); assert '/v1/chat/completions' in d['paths']; assert '/v1/models' in d['paths']; assert '/v1/responses' not in d['paths']"
       - run: pip-audit --local
+      - run: git diff --exit-code -- ../../packages/api-contract/openapi.json
+
+  python-sdk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[dev]" pip-audit
+      - run: pyright
+      - run: pytest -q
+      - run: python -m build
+      - run: pip-audit --local
+      - run: python -m venv /tmp/switchroute-sdk-smoke && /tmp/switchroute-sdk-smoke/bin/pip install dist/*.whl && /tmp/switchroute-sdk-smoke/bin/python -c "from switchroute import SwitchRoute, AsyncSwitchRoute; print(SwitchRoute, AsyncSwitchRoute)"
+
+  javascript-sdk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/javascript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm test
+      - run: npm pack --dry-run
+      - run: npm audit --audit-level=high
+      - run: npm install --prefix ../../tests/compat
+      - run: node ../../tests/compat/openai_js.mjs
+
+  edge:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: crates/switchroute-edge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/switchroute-edge
+      - run: cargo fmt --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked
+      - run: cargo build --locked
+      - run: cargo build --locked --release
+      - run: cargo run --locked -- --version
+
+  edge-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/switchroute-edge
+      - run: cargo install cargo-audit --locked
+      - run: cargo audit --file crates/switchroute-edge/Cargo.lock
 
   database:
     runs-on: ubuntu-latest

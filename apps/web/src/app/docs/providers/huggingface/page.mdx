@@ -1,0 +1,22 @@
+# Hugging Face Inference Providers
+
+## Credential
+Get a Hugging Face access token with inference permissions from **Hugging Face Settings → Access Tokens**. SwitchRoute validates and encrypts the token server-side.
+
+## Validation
+SwitchRoute verifies the token with Hugging Face identity and queries `https://router.huggingface.co/v1/models`.
+
+## Model discovery
+Router model IDs and provider-published availability/context/tool/structured-output/vision metadata are normalized when present. Invocation uses the router's OpenAI-compatible API.
+
+## Free usage
+Free-capable inference may exist depending on provider, account, and model; it is not guaranteed.
+
+## Quota and rate metadata
+Runtime failures are normalized; provider-specific quota-aware selection is not implemented yet.
+
+## Known limitations
+Availability behind the Hugging Face router can change independently of the model ID.
+
+## Disconnect
+Use **Providers → Disconnect** after removing this connection from all Routes.

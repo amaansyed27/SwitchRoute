@@ -1,15 +1,59 @@
 # Routes
 
-A Route is a reusable model-selection policy. Every request chooses one target.
+A Route is a reusable model-selection and spend policy. Every request still chooses exactly one provider/model target behind the same OpenAI-compatible endpoint.
 
-## Priority
+## Strategies
 
-Targets are attempted in the order shown in the Route builder. If target A fails before response content begins, SwitchRoute may try target B.
+### Priority
 
-## Free First
+Preserves the target order in the Route builder after capability, health, quota and budget filters remove known-ineligible targets.
 
-Slice 1 uses provider/model metadata to rank `free`, then `free_capable`, then unknown, then paid targets while preserving user order within each tier. This is intentionally basic; live quota intelligence belongs to a later slice.
+### Free First
+
+Uses live routing state rather than the static billing label alone. Known-free targets are preferred. A `free_capable` target counts as free only when SwitchRoute has confirmed available free-scoped capacity. Paid targets are used only when the Route's paid fallback policy permits them.
+
+Unknown price is never free, and unknown quota is never unlimited.
+
+### Quota Aware
+
+Prefers usable remaining capacity across known RPM, TPM, RPD, TPD and concurrency limits. Unknown quota does not outrank known available capacity.
+
+### Fastest
+
+Uses rolling provider/model request-latency EWMA. Cold targets have low confidence and do not automatically win. Streaming TTFT is measured separately.
+
+### Cheapest
+
+Uses normalized provider pricing and an in-memory token estimate. Unknown-priced targets sort after known prices rather than being treated as zero-cost.
+
+### Balanced
+
+Combines operational health, usable quota, latency and known price. It does not invent a universal model-quality score; the Route already defines which models are eligible.
+
+## Paid fallback
+
+Paid fallback is enforced by the gateway:
+
+- **Never** — only confirmed free capacity may run.
+- **After free capacity** — free capacity is attempted before paid candidates.
+- **Paid allowed** — paid candidates participate according to the selected strategy.
+
+An optional daily paid cap is also enforced server-side. A paid target with unknown request cost cannot be used when a cap would otherwise be impossible to enforce.
+
+## Quota evidence
+
+Quota values are labeled `exact`, `observed`, `estimated`, `catalog`, or `unknown`, with confidence and reset information where known. Capacity scope (`free`, account-wide, or unknown) is tracked separately, so an account rate-limit header is not silently presented as free quota.
+
+Quota detection quality depends on what each upstream provider exposes.
+
+## Health and fallback
+
+Authentication errors mark a provider connection as needing attention. Transient 429, timeout and 5xx/unavailable failures influence a provider/model circuit breaker. Repeated transient failures open the circuit, cooldown moves it to half-open, and one successful probe closes it.
 
 ## Streaming rule
 
-Fallback is allowed only before streamed content begins. After any response content is emitted, SwitchRoute never appends an answer from a second model. If the active provider fails mid-stream, the client receives a normalized stream error.
+Fallback is allowed only before response content begins. After any content/tool/reasoning output is emitted, SwitchRoute never appends an answer from a second model. If the active provider fails mid-stream, the client receives a normalized stream error and the same provider's reservation is reconciled.
+
+## Activity explanations
+
+Activity stores bounded routing metadata such as strategy, selected provider/model, paid/free decision, safe exclusion reasons, fallback path, quota confidence, cost estimate, latency and circuit state. Prompt, response, tool, system-prompt and upload contents are intentionally unavailable.

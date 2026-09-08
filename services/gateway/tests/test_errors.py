@@ -29,6 +29,10 @@ def test_provider_timeouts_are_normalized() -> None:
     assert classify_provider_error(ExampleTimeoutError()).code == PROVIDER_TIMEOUT
 
 
+def test_provider_5xx_errors_are_normalized() -> None:
+    assert classify_provider_error(StatusError(503)).code == PROVIDER_UNAVAILABLE
+
+
 def test_unknown_provider_failures_are_sanitized() -> None:
     error = classify_provider_error(RuntimeError("raw upstream body containing prompt"))
     assert error.code == PROVIDER_UNAVAILABLE

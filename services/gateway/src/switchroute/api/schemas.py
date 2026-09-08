@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+PROVIDER_KIND_PATTERN = r"^[a-z0-9][a-z0-9_-]{0,63}$"
+
 
 class ChatCompletionRequest(BaseModel):
     model_config = {"extra": "allow"}
@@ -11,9 +13,16 @@ class ChatCompletionRequest(BaseModel):
     stream: bool = False
 
 
+class ProviderConnectionConfig(BaseModel):
+    base_url: str | None = Field(default=None, max_length=2048)
+    discover_models: bool = True
+    manual_model_id: str | None = Field(default=None, min_length=1, max_length=240)
+
+
 class ProviderCredential(BaseModel):
-    provider_kind: Literal["groq", "gemini", "openrouter", "test"]
+    provider_kind: str = Field(min_length=1, max_length=64, pattern=PROVIDER_KIND_PATTERN)
     api_key: str = Field(min_length=3, max_length=2048)
+    connection: ProviderConnectionConfig | None = None
 
 
 class ProviderCreate(ProviderCredential):
@@ -30,8 +39,12 @@ class RouteTargetInput(BaseModel):
 class RouteWrite(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     slug: str = Field(min_length=2, max_length=64)
-    strategy: Literal["priority", "free_first"] = "priority"
+    strategy: Literal[
+        "priority", "free_first", "quota_aware", "fastest", "cheapest", "balanced"
+    ] = "priority"
     enabled: bool = True
+    paid_fallback: Literal["never", "after_free", "allowed"] = "after_free"
+    daily_paid_cap_microusd: int | None = Field(default=None, ge=0)
     targets: list[RouteTargetInput] = Field(min_length=1, max_length=20)
 
     @field_validator("slug")

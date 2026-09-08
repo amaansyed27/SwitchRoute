@@ -1,5 +1,11 @@
 # Custom / OpenAI-compatible providers
 
-Custom OpenAI-compatible cloud endpoints are an intended provider boundary, but they are **not implemented in Slice 1**. The provider adapter contract and LiteLLM normalization layer are designed so a later provider can add credential validation, model discovery, metadata, error classification, and invocation naming without changing Route semantics.
+Slice 1.8 supports **custom OpenAI-compatible hosted cloud endpoints**.
 
-Local providers such as Ollama, LM Studio, vLLM, FreeToken, and SwitchRoute Edge also belong to later slices.
+A connection supplies a display name, a public HTTPS base URL, an API key, optional `/models` discovery, and a manual model ID fallback. SwitchRoute validates the endpoint before saving it and performs a fixed one-token chat compatibility probe so a name-only placeholder cannot be presented as working support.
+
+Hosted custom endpoints are security-restricted: localhost, private networks, link-local addresses, cloud metadata destinations, unsafe DNS resolutions, and unsafe redirects are rejected. Redirects are limited and every destination is revalidated.
+
+See [Custom OpenAI-compatible cloud endpoint](/docs/providers/custom-openai) for the exact behavior.
+
+Local/private endpoints are intentionally **not** accepted by the hosted gateway. Ollama, LM Studio, vLLM, llama.cpp, SGLang, LocalAI, FreeToken, and custom local OpenAI-compatible endpoints belong to SwitchRoute Edge in Slice 3.

@@ -1,0 +1,22 @@
+# SambaNova
+
+## Credential
+Get a SambaCloud API key from **SambaNova Cloud**. SwitchRoute validates it and encrypts it before storage.
+
+## Validation
+SwitchRoute calls `GET https://api.sambanova.ai/v1/models` with bearer authentication.
+
+## Model discovery
+Context, maximum completion, and pricing metadata are normalized when the provider returns them.
+
+## Free usage
+Free availability is reported as unknown.
+
+## Quota and rate metadata
+Runtime failures are normalized; proactive account quota is not ingested.
+
+## Known limitations
+Capabilities absent from the provider model response remain unknown rather than curated guesses.
+
+## Disconnect
+Use **Providers → Disconnect** after removing this connection from all Routes.

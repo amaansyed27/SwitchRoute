@@ -1,0 +1,42 @@
+# Compatibility
+
+SwitchRoute release version: **0.4.0**.
+
+## Hosted API
+
+| Surface | Status |
+| --- | --- |
+| `POST /v1/chat/completions` | Supported |
+| Chat completions streaming | Supported |
+| `GET /v1/models` | Supported |
+| OpenAI Python SDK with custom `base_url` | CI verified |
+| OpenAI JavaScript SDK with custom `baseURL` | CI verified |
+| `/v1/responses` | Not implemented / not advertised |
+
+The checked-in OpenAPI 3.1 document is generated from the gateway application and CI fails when it drifts.
+
+## SwitchRoute SDKs
+
+| Package | Version source | Runtime |
+| --- | --- | --- |
+| `switchroute` | root `VERSION` / package metadata | Python 3.10+ |
+| `@switchroute/sdk` | root `VERSION` / package metadata | supported modern Node/server runtimes |
+| `switchroute-edge` | root `VERSION` embedded at build time | Windows x64, Linux x64, macOS arm64, macOS x64 when release workflow succeeds |
+
+The Rust crate itself is not published to crates.io; the distributable CLI version is derived from the repository `VERSION` file by `build.rs`.
+
+## Hosted providers
+
+The canonical provider catalog contains 17 hosted connection types. Provider model metadata is evidence-based; unsupported or unavailable pricing/quota/capability fields remain unknown instead of being guessed.
+
+## Local runtimes
+
+Edge supports Ollama, LM Studio, vLLM, llama.cpp server, SGLang, LocalAI, FreeToken, and custom local OpenAI-compatible endpoints.
+
+## Routing
+
+Hosted strategies: Priority, Free First, Quota Aware, Fastest, Cheapest, Balanced.
+
+Edge strategies: Priority, Local First, Free First.
+
+Local-to-hosted fallback is supported when a cloud target is explicitly configured in Edge. Hosted cloud-to-local tunneling is not supported.
