@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import asdict
 from typing import Any
 from uuid import UUID
@@ -97,9 +98,11 @@ async def provider_catalog(request: Request, _: WorkspaceContext = Depends(works
 @router.get("/bootstrap")
 async def bootstrap(request: Request, ctx: WorkspaceContext = Depends(workspace_context)):
     repo = request.app.state.services.repository
-    providers = await repo.list_providers(ctx.workspace_id)
-    routes = await _routes(request, ctx.workspace_id)
-    keys = await repo.list_keys(ctx.workspace_id)
+    providers, routes, keys = await asyncio.gather(
+        repo.list_providers(ctx.workspace_id),
+        _routes(request, ctx.workspace_id),
+        repo.list_keys(ctx.workspace_id),
+    )
     return {
         "workspace": ctx.workspace,
         "providers": providers,
@@ -254,10 +257,14 @@ async def activity(request: Request, limit: int = 50, ctx: WorkspaceContext = De
 @router.get("/dashboard")
 async def dashboard(request: Request, ctx: WorkspaceContext = Depends(workspace_context)):
     services = request.app.state.services
-    summary = await services.repository.dashboard(ctx.workspace_id)
-    routes = await _routes(request, ctx.workspace_id)
-    summary["recent_activity"] = await services.repository.activity(ctx.workspace_id, 8)
-    summary["providers"] = await services.repository.list_providers(ctx.workspace_id)
+    summary, routes, recent, providers = await asyncio.gather(
+        services.repository.dashboard(ctx.workspace_id),
+        _routes(request, ctx.workspace_id),
+        services.repository.activity(ctx.workspace_id, 8),
+        services.repository.list_providers(ctx.workspace_id),
+    )
+    summary["recent_activity"] = recent
+    summary["providers"] = providers
     summary["routing_state_available"] = services.routing_state.available
     summary["routing_attention_targets"] = _routing_attention(routes)
     return summary

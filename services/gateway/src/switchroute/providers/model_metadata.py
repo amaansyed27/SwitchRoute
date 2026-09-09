@@ -1,4 +1,5 @@
 from typing import Any
+from math import isfinite
 
 from switchroute.domain import ProviderModel
 
@@ -20,7 +21,8 @@ KNOWN_CAPABILITIES = {"chat", "streaming", "tools", "vision", "reasoning", "stru
 
 def number(value: Any) -> float | None:
     try:
-        return float(value) if value is not None else None
+        parsed = float(value) if value is not None and not isinstance(value, bool) else None
+        return parsed if parsed is not None and isfinite(parsed) and parsed >= 0 else None
     except (TypeError, ValueError):
         return None
 
@@ -41,9 +43,9 @@ def per_million(value: Any, unit: str) -> float | None:
 
 def billing(input_price: float | None, output_price: float | None) -> str:
     known = [price for price in (input_price, output_price) if price is not None]
-    if not known:
-        return "unknown"
-    return "free" if all(price == 0 for price in known) else "paid"
+    if any(price > 0 for price in known):
+        return "paid"
+    return "free" if input_price == 0 and output_price == 0 else "unknown"
 
 
 def looks_chat_capable(item: dict[str, Any], model_id: str) -> bool:

@@ -6,6 +6,7 @@ import asyncpg
 from switchroute.domain import Candidate, VirtualKeyContext
 from switchroute.errors import ROUTE_NOT_FOUND, SwitchRouteError
 from switchroute.storage.postgres_base import record_dict
+from switchroute.providers.model_metadata import billing, number
 
 
 async def create_key(
@@ -64,7 +65,12 @@ def _candidate(row: asyncpg.Record) -> Candidate:
     # endpoints remain conservative unless their discovered metadata explicitly says streaming.
     if data["provider_kind"] != "custom_openai":
         capabilities.add("streaming")
-    billing_tier = model.get("billing_tier") or data["billing_tier"]
+    # Client-supplied target labels are never evidence of free usage.
+    billing_tier = model.get("billing_tier") or "unknown"
+    input_price = number(model.get("input_price_per_million_usd"))
+    output_price = number(model.get("output_price_per_million_usd"))
+    if input_price is not None or output_price is not None:
+        billing_tier = billing(input_price, output_price)
     return Candidate(
         target_id=data["target_id"],
         provider_connection_id=data["provider_connection_id"],
@@ -74,8 +80,8 @@ def _candidate(row: asyncpg.Record) -> Candidate:
         position=data["position"],
         capabilities=tuple(sorted(capabilities)),
         metadata_provenance=str(model.get("metadata_provenance") or "unknown"),
-        input_price_per_million_usd=model.get("input_price_per_million_usd"),
-        output_price_per_million_usd=model.get("output_price_per_million_usd"),
+        input_price_per_million_usd=input_price,
+        output_price_per_million_usd=output_price,
         connection_status=data["connection_status"],
     )
 
