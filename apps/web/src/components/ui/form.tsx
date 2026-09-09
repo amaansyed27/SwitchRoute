@@ -8,11 +8,11 @@ export function Label({ htmlFor, children, className }: { htmlFor?: string; chil
 const control = "w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted-foreground)] hover:border-[var(--border-strong)] focus:border-[var(--ring)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--ring)_20%,transparent)] disabled:cursor-not-allowed disabled:opacity-50";
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn(control, "h-9 px-3 text-sm", className)} {...props} />;
+  return <input className={cn(control, "h-11 px-3 text-base sm:text-sm", className)} {...props} />;
 }
 
 export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn(control, "h-9 px-3 text-sm", className)} {...props}>{children}</select>;
+  return <select className={cn(control, "h-11 px-3 text-base sm:text-sm", className)} {...props}>{children}</select>;
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {

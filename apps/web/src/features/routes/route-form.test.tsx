@@ -46,3 +46,31 @@ test("allows two API-key connections from the same provider in one waterfall", a
   const payload = JSON.parse(String(request?.body));
   expect(payload.targets.map((target: { provider_connection_id: string }) => target.provider_connection_id)).toEqual(["p1", "p2"]);
 });
+
+
+test("new waterfalls require an explicit choice before allowing paid fallback", async () => {
+  mocked.mockResolvedValue({ id: "safe" } as never);
+  render(<RouteForm providers={providers} onSaved={vi.fn()} />);
+  expect(screen.getByLabelText("Paid fallback")).toHaveValue("never");
+  fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Safe" } });
+  fireEvent.click(screen.getByRole("button", { name: /Add model/ }));
+  expect(screen.getByRole("option", { name: /Model A.*Account-dependent/ })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Create waterfall" }));
+  await waitFor(() => expect(mocked).toHaveBeenCalled());
+  expect(JSON.parse(mocked.mock.calls[0][1]!.body as string).paid_fallback).toBe("never");
+});
+
+
+test("moves fallback accounts without changing their models", async () => {
+  mocked.mockResolvedValue({ id: "ordered" } as never);
+  render(<RouteForm providers={providers} onSaved={vi.fn()} />);
+  fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Ordered" } });
+  fireEvent.click(screen.getByRole("button", { name: /Add model/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Add model/ }));
+  fireEvent.change(screen.getAllByLabelText("Provider")[1], { target: { value: "p2" } });
+  fireEvent.click(screen.getByRole("button", { name: "Move target 2 up" }));
+  fireEvent.click(screen.getByRole("button", { name: "Create waterfall" }));
+  await waitFor(() => expect(mocked).toHaveBeenCalled());
+  const payload = JSON.parse(String(mocked.mock.calls[0][1]?.body));
+  expect(payload.targets.map((target: {provider_connection_id: string}) => target.provider_connection_id)).toEqual(["p2", "p1"]);
+});

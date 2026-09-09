@@ -57,3 +57,11 @@ Fallback is allowed only before response content begins. After any content/tool/
 ## Activity explanations
 
 Activity stores bounded routing metadata such as strategy, selected provider/model, paid/free decision, safe exclusion reasons, fallback path, quota confidence, cost estimate, latency and circuit state. Prompt, response, tool, system-prompt and upload contents are intentionally unavailable.
+
+## Spending controls in the dashboard
+
+New waterfalls created in the dashboard default to **Never use paid**. Existing waterfalls retain their saved policy. The policy is visible in the waterfall list and editor.
+
+Model labels distinguish **Free**, **Paid**, **Account-dependent**, and **Price unverified**. Account-dependent is not a promise of free access: the gateway requires confirmed free capacity before using such a target with paid requests disabled. Unknown-priced targets cannot run under a daily paid cap.
+
+Search models by name or ID and filter by billing type. Use the up/down arrows to reorder targets. The current selection remains visible when filtering so searching does not silently change a target. Refresh a provider with **Test** to rediscover its model metadata.

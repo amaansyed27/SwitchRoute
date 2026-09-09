@@ -57,11 +57,16 @@ export function DashboardClient() {
     <PageHeader
       title="Overview"
       eyebrow="Workspace"
-      description="Provider health, routing capacity, spend, and request activity at a glance."
+      description="Your connections, recent requests, and what needs your attention."
       action={<div className="flex gap-2"><Link className={buttonClass({ variant: "secondary", size: "sm" })} href="/providers"><Icon name="plus" className="size-3.5"/>Provider</Link><Link className={buttonClass({ size: "sm" })} href="/routes"><Icon name="waterfall" className="size-3.5"/>New waterfall</Link></div>}
     />
     {error && <Retry message={error} onRetry={() => void load()} />}
     {!data && !error ? <LoadingBlock label="Loading overview"/> : data && <>
+      {(!data.providers.length || !data.active_routes || !data.requests_24h) && <section className="mb-8 border-y border-[var(--border)] py-6"><h2 className="text-xl font-medium">Your next step</h2><div className="mt-4 grid gap-3 sm:grid-cols-3">{[
+        { href: "/providers", title: "1. Connect a provider", detail: data.providers.length ? `${data.providers.length} connected` : "Add your first provider key" },
+        { href: "/routes", title: "2. Build a waterfall", detail: data.active_routes ? `${data.active_routes} active` : "Choose models and spending permissions" },
+        { href: "/api-keys", title: "3. Create an API key", detail: "Use it with your existing OpenAI client" },
+      ].map((step) => <Link key={step.href} href={step.href} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 hover:border-[var(--accent)]"><strong className="text-sm">{step.title} ↗</strong><p className="mt-2 text-sm text-[var(--muted-foreground)]">{step.detail}</p></Link>)}</div></section>}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <Stat label="Healthy providers" value={`${data.healthy_providers}/${data.providers.length}`} detail="validated upstream connections"/>
         <Stat label="Active waterfalls" value={data.active_routes} detail="available for routing"/>

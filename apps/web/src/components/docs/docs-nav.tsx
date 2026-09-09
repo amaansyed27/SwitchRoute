@@ -65,7 +65,7 @@ export function DocsNav() {
     <nav className="space-y-5" aria-label="Documentation">
       {groups.map(([label, links]) => (
         <div key={label}>
-          <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-[.1em] text-[var(--muted-foreground)]">
+          <p className="mb-1.5 px-2 text-xs font-medium text-[var(--muted-foreground)]">
             {label}
           </p>
           <div className="space-y-0.5">
@@ -73,7 +73,7 @@ export function DocsNav() {
               <Link
                 key={href}
                 href={href}
-                className="block rounded-lg px-2 py-1.5 text-xs text-[var(--muted-foreground)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
+                className="block rounded-lg px-2 py-2 text-sm text-[var(--muted-foreground)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
               >
                 {title}
               </Link>

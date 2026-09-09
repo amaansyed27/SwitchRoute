@@ -9,7 +9,7 @@ export function Badge({ children, tone = "neutral", className = "" }: { children
     danger: "border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400",
     accent: "border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]",
   } as const;
-  return <span className={cn("inline-flex h-5 items-center rounded-md border px-1.5 text-[10px] font-semibold uppercase tracking-[.06em]", tones[tone], className)}>{children}</span>;
+  return <span className={cn("inline-flex min-h-6 items-center rounded-md border px-1.5 text-xs font-medium", tones[tone], className)}>{children}</span>;
 }
 
 export function StatusDot({ status }: { status: string }) {
@@ -20,7 +20,7 @@ export function StatusDot({ status }: { status: string }) {
 
 export function Alert({ children, tone = "error" }: { children: React.ReactNode; tone?: "error" | "info" | "success" }) {
   const styles = tone === "error" ? "border-red-500/20 bg-red-500/8 text-red-700 dark:text-red-300" : tone === "success" ? "border-emerald-500/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300" : "border-[var(--border)] bg-[var(--surface-muted)] text-[var(--muted-foreground)]";
-  return <div className={cn("rounded-lg border px-3 py-2.5 text-sm", styles)}>{children}</div>;
+  return <div role={tone === "error" ? "alert" : "status"} className={cn("sr-feedback-enter rounded-lg border px-3 py-2.5 text-sm", styles)}>{children}</div>;
 }
 
 export function Skeleton({ className = "" }: { className?: string }) {

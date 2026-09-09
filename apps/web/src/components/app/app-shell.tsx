@@ -20,38 +20,26 @@ const nav = [
 export function AppShell({ children, email }: { children: React.ReactNode; email?: string }) {
   const pathname = usePathname();
   const router = useRouter();
-
   async function signOut() {
-    await createClient().auth.signOut();
+    const { error } = await createClient().auth.signOut();
+    if (error) { window.alert("Sign out failed. Please try again."); return; }
     router.replace("/login");
     router.refresh();
   }
-
-  return <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] lg:grid lg:grid-cols-[228px_minmax(0,1fr)]">
-    <aside className="sticky top-0 z-30 hidden h-screen flex-col border-r border-[var(--border)] bg-[var(--sidebar)] lg:flex">
-      <div className="flex h-16 items-center px-4"><Brand href="/dashboard" /></div>
-      <nav className="flex-1 space-y-1 px-2 py-3" aria-label="Product navigation">
-        {nav.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-          return <Link key={item.href} href={item.href} data-active={active} className={cn("sr-nav-item group flex h-9 items-center gap-3 rounded-lg px-3 text-sm font-medium", active ? "bg-[var(--nav-active)] text-[var(--foreground)]" : "text-[var(--muted-foreground)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]")}><Icon name={item.icon} className="size-4"/><span className="transition-transform duration-150 group-hover:translate-x-0.5">{item.label}</span></Link>;
-        })}
-      </nav>
-      <div className="border-t border-[var(--border)] p-3">
-        <div className="mb-3 min-w-0 px-2"><p className="truncate text-xs font-medium text-[var(--foreground)]">{email ?? "Signed in"}</p><p className="mt-0.5 text-[11px] text-[var(--muted-foreground)]">Personal workspace</p></div>
-        <div className="flex items-center justify-between gap-2"><ThemeSwitcher compact/><Button variant="ghost" size="sm" onClick={signOut}><Icon name="logout" className="size-3.5"/>Sign out</Button></div>
-      </div>
+  return <div className="workspace-shell">
+    <a href="#workspace-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:bg-[var(--surface)] focus:p-4">Skip to content</a>
+    <aside className="workspace-sidebar">
+      <div className="px-6 py-8"><Brand href="/dashboard"/></div>
+      <div className="mx-4 mb-8 border-y border-[var(--border)] px-3 py-4"><p className="text-sm font-medium">Personal workspace</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">Cloud routing</p></div>
+      <nav aria-label="Product navigation" className="flex-1 space-y-1 px-3">{nav.map((item) => {
+        const active = pathname === item.href;
+        return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className="workspace-link"><Icon name={item.icon} className="size-4"/>{item.label}{active && <span className="ml-auto size-1.5 rounded-full bg-[var(--accent)]"/>}</Link>;
+      })}</nav>
+      <div className="m-4 border-t border-[var(--border)] pt-5"><Link href="/docs/getting-started" className="block px-3 py-3 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]">Documentation ↗</Link><div className="mt-4 flex items-center gap-3 px-3"><span className="grid size-8 shrink-0 place-items-center rounded-full bg-[var(--surface-hover)] text-xs">{email?.[0]?.toUpperCase() ?? "W"}</span><span className="truncate text-xs text-[var(--muted-foreground)]">{email ?? "Signed in"}</span><button aria-label="Sign out" onClick={signOut} className="ml-auto grid size-10 shrink-0 place-items-center rounded-md hover:bg-[var(--surface-hover)]"><Icon name="logout" className="size-4"/></button></div></div>
     </aside>
-
-    <div className="min-w-0">
-      <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_92%,transparent)] px-4 backdrop-blur-xl transition-[background-color,border-color] duration-200 lg:px-6">
-        <div className="lg:hidden"><Brand href="/dashboard" /></div>
-        <div className="hidden text-xs text-[var(--muted-foreground)] lg:block">Control plane</div>
-        <div className="flex items-center gap-2"><span className="hidden rounded-md bg-[var(--surface-muted)] px-2 py-1 font-mono text-[10px] text-[var(--muted-foreground)] transition hover:bg-[var(--surface-hover)] sm:inline">zero content retention</span><div className="lg:hidden"><ThemeSwitcher compact/></div></div>
-      </header>
-      <main className="mx-auto w-full max-w-[1380px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">{children}</main>
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-[var(--border)] bg-[var(--sidebar)] p-1 lg:hidden" aria-label="Mobile navigation">
-        {nav.map((item) => { const active = pathname === item.href || pathname.startsWith(`${item.href}/`); return <Link key={item.href} href={item.href} data-active={active} className={cn("sr-nav-item flex min-w-0 flex-col items-center gap-1 rounded-md px-1 py-2 text-[10px]", active ? "bg-[var(--nav-active)] text-[var(--foreground)]" : "text-[var(--muted-foreground)]")}><Icon name={item.icon} className="size-4"/><span className="truncate">{item.label}</span></Link>; })}
-      </nav>
+    <div className="min-w-0"><header className="workspace-header"><div className="lg:hidden"><Brand href="/dashboard"/></div><p className="hidden text-sm text-[var(--muted-foreground)] lg:block">Workspace <span className="mx-3 text-[var(--border-strong)]">/</span> <span className="text-[var(--foreground)]">{nav.find((item) => item.href === pathname)?.label ?? "Overview"}</span></p><div className="flex items-center gap-3"><Link href="/docs" className="hidden text-sm text-[var(--muted-foreground)] sm:block">Help & docs</Link><ThemeSwitcher compact/><Button className="lg:hidden" variant="ghost" size="sm" onClick={signOut} aria-label="Sign out"><Icon name="logout" className="size-4"/></Button></div></header>
+      <main id="workspace-content" className="workspace-content">{children}</main>
+      <nav className="workspace-mobile-nav" aria-label="Mobile navigation">{nav.map((item) => <Link key={item.href} href={item.href} aria-current={pathname === item.href ? "page" : undefined} className={cn("flex min-h-14 flex-col items-center justify-center gap-1 text-[11px]", pathname === item.href ? "text-[var(--accent)]" : "text-[var(--muted-foreground)]")}><Icon name={item.icon} className="size-5"/>{item.label}</Link>)}</nav>
     </div>
   </div>;
 }
